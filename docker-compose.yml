@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    hostname: postgres
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "6001:5432"
+  test:
+    build:
+      context: .
+      dockerfile: test.Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      - WAIT_HOSTS=postgres:5432
+      # Wait for database metadata initialization
+      - WAIT_AFTER_HOSTS=15
+      - MIGRATE_TEST_BUILD=true
