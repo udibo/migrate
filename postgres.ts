@@ -7,34 +7,21 @@ import {
   StringReader,
   Transaction,
   TransactionError,
-} from "../deps.ts";
-import { Migrate, MigrateOptions, Migration } from "../migrate.ts";
-
-/** Migration query configuration. */
-export interface MigrationQueryConfig {
-  text: string;
-  args?: unknown[];
-}
-
-export type MigrationQuery = string | MigrationQueryConfig;
-
-/** JSON representation of a migration. */
-export interface MigrationJSON {
-  queries: MigrationQuery[];
-  disableTransaction?: boolean;
-}
-
-/** A script for generating migration queries. */
-export interface MigrationScript<GenerateOptions = unknown> {
-  generateQueries(options?: GenerateOptions):
-    | Iterable<MigrationQuery>
-    | AsyncIterable<MigrationQuery>;
-  disableTransaction?: boolean;
-}
+} from "./deps.ts";
+import {
+  Migrate,
+  MigrateLock,
+  MigrateLockOptions,
+  MigrateOptions,
+  Migration,
+  MigrationJSON,
+  MigrationQuery,
+  MigrationScript,
+} from "./migrate.ts";
 
 const DEFAULT_LOCK_ID = -8525285245963000605n;
-export interface PostgresMigrateLock {
-  release(): Promise<void>;
+export interface PostgresMigrateLockOptions extends MigrateLockOptions {
+  id?: BigInt;
 }
 
 export interface PostgresMigrateOptions<GenerateOptions = unknown>
@@ -217,19 +204,9 @@ export class PostgresMigrate<GenerateOptions = unknown> extends Migrate {
     }
   }
 
-  /**
-   * Acquires an advisory lock for the migrate client.
-   * This can be used to ensure only one instance of the migrate script runs at a time.
-   * Without locking, it's possible that a migration may get applied multiple times.
-   * The lock should be acquired before getting the list of unapplied migrations and
-   * the lock should be released after the migrations are applied.
-   * With the options, you can override the default advisory lock id and specify an abort signal.
-   * The abort signal is only used to abort attempts to acquire it,
-   * it will not release an already acquired lock.
-   */
   async lock(
-    options: { id?: BigInt; signal?: AbortSignal } = { id: DEFAULT_LOCK_ID },
-  ): Promise<PostgresMigrateLock> {
+    options: PostgresMigrateLockOptions = { id: DEFAULT_LOCK_ID },
+  ): Promise<MigrateLock> {
     const { signal } = options;
     const id = options.id ?? DEFAULT_LOCK_ID;
     const { client } = this;

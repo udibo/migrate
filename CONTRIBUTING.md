@@ -35,24 +35,34 @@ docker-compose run test
 To be able to run the tests, you will need to start up the postgres service.
 
 ```sh
+make start
+# or
 docker-compose up -d postgres
 ```
 
 For any change to get merged, it must pass linting and formatting requirements.
 
 ```sh
+make check
+# or
 deno lint
 deno fmt --check
 ```
 
-To run the tests, use the same command used by the docker test build.
+To run the tests.
 
 ```sh
+make test
+# or
+make test-watch
+# or
 deno test -A
 ```
 
 When done you can stop the postgres service with the following command.
 
 ```sh
+make stop
+# or
 docker-compose down
 ```

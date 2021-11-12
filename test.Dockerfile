@@ -16,7 +16,7 @@ RUN deno cache test_deps.ts
 
 ADD . .
 # Compile the postgres entry point
-RUN deno cache adapters/postgres.ts
+RUN deno cache postgres.ts
 
 RUN deno lint
 RUN deno fmt --check

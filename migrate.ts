@@ -16,8 +16,38 @@ export interface Migration {
 
 export const MIGRATION_ENTRY = /^(\d+)(?:_.+)?.(sql|js|ts|json)$/;
 
+/** Migration query configuration. */
+export interface MigrationQueryConfig {
+  text: string;
+  args?: unknown[];
+}
+
+export type MigrationQuery = string | MigrationQueryConfig;
+
+/** JSON representation of a migration. */
+export interface MigrationJSON {
+  queries: MigrationQuery[];
+  disableTransaction?: boolean;
+}
+
+/** A script for generating migration queries. */
+export interface MigrationScript<GenerateOptions = unknown> {
+  generateQueries(options?: GenerateOptions):
+    | Iterable<MigrationQuery>
+    | AsyncIterable<MigrationQuery>;
+  disableTransaction?: boolean;
+}
+
 export interface MigrateOptions {
   migrationsDir?: string;
+}
+
+export interface MigrateLockOptions {
+  signal?: AbortSignal;
+}
+
+export interface MigrateLock {
+  release(): Promise<void>;
 }
 
 /** Base class for object used to apply migrations. */
@@ -30,6 +60,21 @@ export abstract class Migrate {
 
   /** Creates the migration table. */
   abstract init(): Promise<void>;
+  /** Connects the client. */
+  abstract connect(): Promise<void>;
+  /** Ends the client connection. */
+  abstract end(): Promise<void>;
+  /**
+   * Acquires an advisory lock for the migrate client.
+   * This can be used to ensure only one instance of the migrate script runs at a time.
+   * Without locking, it's possible that a migration may get applied multiple times.
+   * The lock should be acquired before getting the list of unapplied migrations and
+   * the lock should be released after the migrations are applied.
+   * With the options, you can override the default advisory lock id and specify an abort signal.
+   * The abort signal is only used to abort attempts to acquire it,
+   * it will not release an already acquired lock.
+   */
+  abstract lock(options: MigrateLockOptions): Promise<MigrateLock>;
   /** Get the current date from the client plus the optional offset in milliseconds. */
   abstract now(offset?: number): Promise<Date>;
   /**

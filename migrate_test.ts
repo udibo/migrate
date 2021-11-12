@@ -1,5 +1,5 @@
 import { resolve } from "./deps.ts";
-import { Migrate, Migration, MigrationFile } from "./migrate.ts";
+import { Migrate, MigrateLock, Migration, MigrationFile } from "./migrate.ts";
 import { assertEquals, ensureDir, test, TestSuite } from "./test_deps.ts";
 
 function migrationFromFile(
@@ -14,6 +14,14 @@ function migrationFromFile(
 
 class FakeMigrate extends Migrate {
   async init(): Promise<void> {
+    await Promise.resolve();
+  }
+
+  async connect(): Promise<void> {
+    await Promise.resolve();
+  }
+
+  async end(): Promise<void> {
     await Promise.resolve();
   }
 
@@ -36,6 +44,12 @@ class FakeMigrate extends Migrate {
 
   async apply(migration: Migration): Promise<void> {
     await Promise.resolve(migration);
+  }
+
+  async lock(): Promise<MigrateLock> {
+    return await Promise.resolve({
+      release: () => Promise.resolve(),
+    });
   }
 }
 

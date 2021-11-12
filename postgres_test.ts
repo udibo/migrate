@@ -1,4 +1,4 @@
-import { Client, dirname, fromFileUrl, resolve, Transaction } from "../deps.ts";
+import { Client, dirname, fromFileUrl, resolve, Transaction } from "./deps.ts";
 import {
   assert,
   assertEquals,
@@ -10,9 +10,9 @@ import {
   stub,
   test,
   TestSuite,
-} from "../test_deps.ts";
+} from "./test_deps.ts";
 import { PostgresMigrate, PostgresMigrateOptions } from "./postgres.ts";
-import { Migrate } from "../migrate.ts";
+import { Migrate } from "./migrate.ts";
 
 interface PostgresMigrateTest {
   migrate?: PostgresMigrate;
@@ -71,9 +71,12 @@ test(migrateTests, "now gets current date from client", async () => {
     return rows[0][0];
   }
   const before = await now();
+  const minute = 60 * 1000;
+  const actualOffset = await migrate.now(-minute);
   const actual = await migrate.now();
   const after = await now();
   assert(actual >= before);
+  assert(actual >= new Date(actualOffset.valueOf() + minute));
   assert(actual <= after);
 
   await migrate.end();
@@ -414,7 +417,7 @@ const migrateApplyTests = new TestSuite({
 
 const exampleMigrationsDir = resolve(
   dirname(fromFileUrl(import.meta.url)),
-  "../examples/postgres/migrations",
+  "examples/postgres/migrations",
 );
 
 const exampleMigrationFiles = [
