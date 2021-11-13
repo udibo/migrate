@@ -1,4 +1,11 @@
-import { relative, resolve, walk } from "./deps.ts";
+import {
+  extname,
+  readLines,
+  relative,
+  resolve,
+  StringReader,
+  walk,
+} from "./deps.ts";
 
 export interface MigrationFile {
   id: number;
@@ -14,7 +21,13 @@ export interface Migration {
   updatedAt: Date;
 }
 
-export const MIGRATION_ENTRY = /^(\d+)(?:_.+)?.(sql|js|ts|json)$/;
+export function assertMigrationFile(
+  migration: Migration,
+): asserts migration is Migration & MigrationFile {
+  if (!migration.path) throw new Error("no path for migration");
+}
+
+export const MIGRATION_FILENAME = /^(\d+)(?:_.+)?.(sql|js|ts|json)$/;
 
 /** Migration query configuration. */
 export interface MigrationQueryConfig {
@@ -38,8 +51,14 @@ export interface MigrationScript<GenerateOptions = unknown> {
   disableTransaction?: boolean;
 }
 
-export interface MigrateOptions {
+export interface MigrationPlan {
+  queries: Iterable<MigrationQuery> | AsyncIterable<MigrationQuery>;
+  useTransaction: boolean;
+}
+
+export interface MigrateOptions<GenerateOptions = unknown> {
   migrationsDir?: string;
+  generateOptions?: GenerateOptions;
 }
 
 export interface MigrateLockOptions {
@@ -51,11 +70,13 @@ export interface MigrateLock {
 }
 
 /** Base class for object used to apply migrations. */
-export abstract class Migrate {
+export abstract class Migrate<GenerateOptions = unknown> {
   migrationsDir: string;
+  generateOptions?: GenerateOptions;
 
-  constructor(options: MigrateOptions) {
+  constructor(options: MigrateOptions<GenerateOptions>) {
     this.migrationsDir = resolve(options.migrationsDir ?? "./migrations");
+    this.generateOptions = options.generateOptions;
   }
 
   /** Creates the migration table. */
@@ -74,7 +95,7 @@ export abstract class Migrate {
    * The abort signal is only used to abort attempts to acquire it,
    * it will not release an already acquired lock.
    */
-  abstract lock(options: MigrateLockOptions): Promise<MigrateLock>;
+  abstract lock(options?: MigrateLockOptions): Promise<MigrateLock>;
   /** Get the current date from the client plus the optional offset in milliseconds. */
   abstract now(offset?: number): Promise<Date>;
   /**
@@ -91,26 +112,61 @@ export abstract class Migrate {
 
   /** Resolves the relative migration path in the migrations directory. */
   resolve(migration: Migration): string {
-    if (!migration.path) throw new Error("no path for migration");
+    assertMigrationFile(migration);
     return resolve(this.migrationsDir, migration.path);
   }
 
   /** Gets id and path for all migration files, sorted by id. */
-  async getMigrationFiles(): Promise<MigrationFile[]> {
+  async getFiles(): Promise<MigrationFile[]> {
     const migrations = new Map<number, MigrationFile>();
 
     for await (const entry of walk(this.migrationsDir)) {
-      const match = entry.isFile && entry.name.match(MIGRATION_ENTRY);
+      const match = entry.isFile && entry.name.match(MIGRATION_FILENAME);
       if (!match) continue;
 
       const id = parseInt(match[1]);
       const path = relative(this.migrationsDir, entry.path);
       if (migrations.has(id)) {
-        throw new Error(`duplicate migrations with id ${id}`);
+        throw new Error(`migration id collision on ${id}`);
       }
       migrations.set(id, { id, path });
     }
 
     return [...migrations.values()].sort((a, b) => a.id - b.id);
+  }
+
+  /** Gets a migration plan for a migration from its file. */
+  async getPlan(migration: Migration): Promise<MigrationPlan> {
+    assertMigrationFile(migration);
+    const path = this.resolve(migration);
+    let useTransaction = true;
+    let queries: Iterable<MigrationQuery> | AsyncIterable<MigrationQuery>;
+    const ext = extname(path).toLowerCase();
+    if (ext === ".sql") {
+      const query = await Deno.readTextFile(path);
+      for await (const line of readLines(new StringReader(query))) {
+        if (line.slice(0, 2) !== "--") break;
+        if (line === "-- migrate disableTransaction") useTransaction = false;
+      }
+      queries = [query];
+    } else if (ext === ".json") {
+      const migration: MigrationJSON = JSON.parse(
+        await Deno.readTextFile(path),
+      );
+      ({ queries } = migration);
+      useTransaction = !migration.disableTransaction;
+    } else {
+      const { generateQueries, disableTransaction }: MigrationScript<
+        GenerateOptions
+      > = await import(path);
+      if (!generateQueries) {
+        throw new Error(
+          "migration script must export generateQueries function",
+        );
+      }
+      queries = generateQueries(this.generateOptions);
+      useTransaction = !disableTransaction;
+    }
+    return { queries, useTransaction };
   }
 }

@@ -66,3 +66,31 @@ make stop
 # or
 docker-compose down
 ```
+
+## Examples
+
+To be able to run the example scripts, you will need to start up the postgres
+service.
+
+```sh
+make start
+# or
+docker-compose up -d postgres
+```
+
+The examples can be run from any directory since the migrationsDir is resolved
+from the modules url.
+
+```
+deno run -A examples/postgres/migrate_simple.ts
+// or
+deno run -A examples/postgres/migrate.ts status
+```
+
+When done you can stop the postgres service with the following command.
+
+```sh
+make stop
+# or
+docker-compose down
+```

@@ -2,9 +2,6 @@ import {
   Client,
   ClientOptions,
   delay,
-  extname,
-  readLines,
-  StringReader,
   Transaction,
   TransactionError,
 } from "./deps.ts";
@@ -14,9 +11,7 @@ import {
   MigrateLockOptions,
   MigrateOptions,
   Migration,
-  MigrationJSON,
   MigrationQuery,
-  MigrationScript,
 } from "./migrate.ts";
 
 const DEFAULT_LOCK_ID = -8525285245963000605n;
@@ -25,19 +20,17 @@ export interface PostgresMigrateLockOptions extends MigrateLockOptions {
 }
 
 export interface PostgresMigrateOptions<GenerateOptions = unknown>
-  extends MigrateOptions {
+  extends MigrateOptions<GenerateOptions> {
   client?: string | ClientOptions;
-  generateOptions?: GenerateOptions;
 }
 
-export class PostgresMigrate<GenerateOptions = unknown> extends Migrate {
+export class PostgresMigrate<GenerateOptions = unknown>
+  extends Migrate<GenerateOptions> {
   client: Client;
-  generateOptions?: GenerateOptions;
 
   constructor(options: PostgresMigrateOptions<GenerateOptions>) {
     super(options);
     this.client = new Client(options.client);
-    this.generateOptions = options.generateOptions;
   }
 
   async connect(): Promise<void> {
@@ -85,7 +78,7 @@ export class PostgresMigrate<GenerateOptions = unknown> extends Migrate {
   }
 
   async load(): Promise<void> {
-    const migrationFiles = await this.getMigrationFiles();
+    const migrationFiles = await this.getFiles();
 
     type Row = Pick<Migration, "id" | "appliedPath">;
     const { rows } = await this.client.queryObject<Row>({
@@ -156,33 +149,7 @@ export class PostgresMigrate<GenerateOptions = unknown> extends Migrate {
   }
 
   async apply(migration: Migration): Promise<void> {
-    if (!migration.path) throw new Error("migration not loaded");
-    const path = this.resolve(migration);
-    let useTransaction = true;
-    let queries: Iterable<MigrationQuery> | AsyncIterable<MigrationQuery>;
-    if (extname(path) === ".sql") {
-      const query = await Deno.readTextFile(path);
-      for await (const line of readLines(new StringReader(query))) {
-        if (line.slice(0, 2) !== "--") break;
-        if (line === "-- migrate disableTransaction") useTransaction = false;
-      }
-      queries = [query];
-    } else if (extname(path) === ".json") {
-      const migration: MigrationJSON = JSON.parse(
-        await Deno.readTextFile(path),
-      );
-      ({ queries } = migration);
-      useTransaction = !migration.disableTransaction;
-    } else {
-      const { generateQueries, disableTransaction }: MigrationScript<
-        GenerateOptions
-      > = await import(path);
-      if (!generateQueries) {
-        throw new Error("migration script must export generateSql function");
-      }
-      queries = generateQueries(this.generateOptions);
-      useTransaction = !disableTransaction;
-    }
+    const { queries, useTransaction } = await this.getPlan(migration);
 
     const { client } = this;
     if (useTransaction) {

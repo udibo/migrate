@@ -14,6 +14,7 @@ export { test, TestSuite } from "https://deno.land/x/test_suite@0.9.0/mod.ts";
 export {
   assertSpyCall,
   assertSpyCalls,
+  FakeTime,
   spy,
   stub,
 } from "https://deno.land/x/mock@0.10.1/mod.ts";

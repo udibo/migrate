@@ -1,4 +1,11 @@
-import { Client, dirname, fromFileUrl, resolve, Transaction } from "./deps.ts";
+import {
+  Client,
+  delay,
+  dirname,
+  fromFileUrl,
+  resolve,
+  Transaction,
+} from "./deps.ts";
 import {
   assert,
   assertEquals,
@@ -6,6 +13,7 @@ import {
   assertRejects,
   assertSpyCall,
   assertSpyCalls,
+  FakeTime,
   spy,
   stub,
   test,
@@ -240,10 +248,10 @@ const migrateLoadTests = new TestSuite({
 test(
   migrateLoadTests,
   "no migrations found",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    const getMigrationFiles = stub(
+  async ({ migrate }) => {
+    const getFiles = stub(
       migrate,
-      "getMigrationFiles",
+      "getFiles",
       () => Promise.resolve([]),
     );
     try {
@@ -251,7 +259,7 @@ test(
       const migrations = await migrate.getAll();
       assertEquals(migrations, []);
     } finally {
-      getMigrationFiles.restore();
+      getFiles.restore();
     }
   },
 );
@@ -259,10 +267,10 @@ test(
 test(
   migrateLoadTests,
   "add migrations for new files",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    const getMigrationFiles = stub(
+  async ({ migrate }) => {
+    const getFiles = stub(
       migrate,
-      "getMigrationFiles",
+      "getFiles",
       () =>
         Promise.resolve([
           { id: 0, path: "0_user_create.sql" },
@@ -299,7 +307,7 @@ test(
 
       assertEquals(migrations.slice(2), []);
     } finally {
-      getMigrationFiles.restore();
+      getFiles.restore();
     }
   },
 );
@@ -307,10 +315,10 @@ test(
 test(
   migrateLoadTests,
   "delete migrations if unapplied migration file is deleted",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    const getMigrationFiles = stub(
+  async ({ migrate }) => {
+    const getFiles = stub(
       migrate,
-      "getMigrationFiles",
+      "getFiles",
       () => Promise.resolve([]),
     );
     try {
@@ -336,7 +344,7 @@ test(
 
       assertEquals(migrations.slice(2), []);
     } finally {
-      getMigrationFiles.restore();
+      getFiles.restore();
     }
   },
 );
@@ -344,10 +352,10 @@ test(
 test(
   migrateLoadTests,
   "update migrations if migration file is moved",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    const getMigrationFiles = stub(
+  async ({ migrate }) => {
+    const getFiles = stub(
       migrate,
-      "getMigrationFiles",
+      "getFiles",
       () =>
         Promise.resolve([
           { id: 0, path: "applied/0_user_create.sql" },
@@ -387,7 +395,7 @@ test(
 
       assertEquals(migrations.slice(2), []);
     } finally {
-      getMigrationFiles.restore();
+      getFiles.restore();
     }
   },
 );
@@ -493,168 +501,61 @@ async function assertApplyFirst(migrate: Migrate, expect: {
   assertEquals(migrations.slice(2), []);
 }
 
-test(
-  migrateApplyTests,
-  "apply sql migration file",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
-      await Deno.writeTextFile(
-        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.sql`),
-        migrationFile.text,
-      );
-    }
-
-    await assertApplyFirst(migrate, {
-      names: ["0_user_create.sql", "1_user_add_column_email.sql"],
-      useTransaction: true,
-    });
-  },
+const migrateImportPath = resolve(
+  dirname(fromFileUrl(import.meta.url)),
+  "migrate.ts",
 );
 
 test(
   migrateApplyTests,
-  "apply sql migration file with disableTransaction",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
-      await Deno.writeTextFile(
-        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.sql`),
-        `-- migrate disableTransaction\n${migrationFile.text}`,
-      );
-    }
-
-    await assertApplyFirst(migrate, {
-      names: ["0_user_create.sql", "1_user_add_column_email.sql"],
-      useTransaction: false,
-    });
-  },
-);
-
-test(
-  migrateApplyTests,
-  "apply json migration file",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
-      await Deno.writeTextFile(
-        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.json`),
-        JSON.stringify({
-          queries: [{ text: migrationFile.text }],
-        }),
-      );
-    }
-
-    await assertApplyFirst(migrate, {
-      names: ["0_user_create.json", "1_user_add_column_email.json"],
-      useTransaction: true,
-    });
-  },
-);
-
-test(
-  migrateApplyTests,
-  "apply json migration file with disableTransaction",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
-      await Deno.writeTextFile(
-        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.json`),
-        JSON.stringify({
-          disableTransaction: true,
-          queries: [{ text: migrationFile.text }],
-        }),
-      );
-    }
-
-    await assertApplyFirst(migrate, {
-      names: ["0_user_create.json", "1_user_add_column_email.json"],
-      useTransaction: false,
-    });
-  },
-);
-
-test(
-  migrateApplyTests,
-  "apply js migration file",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
-      await Deno.writeTextFile(
-        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.js`),
-        `
-        export function generateQueries() {
-          return [
-            {text:${JSON.stringify(migrationFile.text)}},
-          ]
-        }
-      `,
-      );
-    }
-
-    await assertApplyFirst(migrate, {
-      names: ["0_user_create.js", "1_user_add_column_email.js"],
-      useTransaction: true,
-    });
-  },
-);
-
-test(
-  migrateApplyTests,
-  "apply js migration file with disableTransaction",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
-      await Deno.writeTextFile(
-        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.js`),
-        `
-          export const disableTransaction = true;
-          export function generateQueries() {
-            return [
-              {text:${JSON.stringify(migrationFile.text)}},
-            ]
-          }
-        `,
-      );
-    }
-
-    await assertApplyFirst(migrate, {
-      names: ["0_user_create.js", "1_user_add_column_email.js"],
-      useTransaction: false,
-    });
-  },
-);
-
-test(
-  migrateApplyTests,
-  "apply ts migration file",
-  async ({ migrate }: InitializedMigrationsTest) => {
+  "apply migration queries",
+  async ({ migrate }) => {
     for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
       await Deno.writeTextFile(
         resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
         `
-        export function generateQueries(): string[] {
-          return [
-            ${JSON.stringify(migrationFile.text)},
-          ]
-        }
-      `,
-      );
-    }
-
-    await assertApplyFirst(migrate, {
-      names: ["0_user_create.ts", "1_user_add_column_email.ts"],
-      useTransaction: true,
-    });
-  },
-);
-
-test(
-  migrateApplyTests,
-  "apply ts migration file with disableTransaction",
-  async ({ migrate }: InitializedMigrationsTest) => {
-    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
-      await Deno.writeTextFile(
-        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
-        `
-          export const disableTransaction = true;
-          export function generateQueries(): string[] {
+          import type { MigrationQuery } from "${migrateImportPath}";
+          export function generateQueries(): MigrationQuery[] {
             return [
               ${JSON.stringify(migrationFile.text)},
+              ${
+          JSON.stringify({
+            text: 'INSERT INTO "user" (id, username) VALUES ($1, $2)',
+            args: [index, `user${index}`],
+          })
+        },
+            ]
+          }
+        `,
+      );
+    }
+
+    await assertApplyFirst(migrate, {
+      names: ["0_user_create.ts", "1_user_add_column_email.ts"],
+      useTransaction: true,
+    });
+  },
+);
+
+test(
+  migrateApplyTests,
+  "apply migration queries with disableTransaction",
+  async ({ migrate }) => {
+    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
+      await Deno.writeTextFile(
+        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
+        `
+          import type { MigrationQuery } from "${migrateImportPath}";
+          export const disableTransaction = true;
+          export function generateQueries(): MigrationQuery[] {
+            return [
+              ${JSON.stringify(migrationFile.text)},
+              ${
+          JSON.stringify({
+            text: 'INSERT INTO "user" (id, username) VALUES ($1, $2)',
+            args: [index, `user${index}`],
+          })
+        },
             ]
           }
         `,
@@ -667,3 +568,149 @@ test(
     });
   },
 );
+
+test(
+  migrateApplyTests,
+  "apply migration queries from iterable",
+  async ({ migrate }) => {
+    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
+      await Deno.writeTextFile(
+        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
+        `
+          import type { MigrationQuery } from "${migrateImportPath}";
+          export function* generateQueries(): Iterator<MigrationQuery> {
+            yield ${JSON.stringify(migrationFile.text)};
+            yield ${
+          JSON.stringify({
+            text: 'INSERT INTO "user" (id, username) VALUES ($1, $2)',
+            args: [index, `user${index}`],
+          })
+        };
+          }
+        `,
+      );
+    }
+
+    await assertApplyFirst(migrate, {
+      names: ["0_user_create.ts", "1_user_add_column_email.ts"],
+      useTransaction: true,
+    });
+  },
+);
+
+const depsImportPath = resolve(
+  dirname(fromFileUrl(import.meta.url)),
+  "deps.ts",
+);
+
+test(
+  migrateApplyTests,
+  "apply migration queries from async iterable",
+  async ({ migrate }) => {
+    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
+      await Deno.writeTextFile(
+        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
+        `
+          import type { MigrationQuery } from "${migrateImportPath}";
+          import { delay } from "${depsImportPath}";
+          export async function* generateQueries(): AsyncIterator<MigrationQuery> {
+            await delay(0);
+            yield ${JSON.stringify(migrationFile.text)};
+            await delay(0);
+            yield ${
+          JSON.stringify({
+            text: 'INSERT INTO "user" (id, username) VALUES ($1, $2)',
+            args: [index, `user${index}`],
+          })
+        };
+          }
+        `,
+      );
+    }
+
+    await assertApplyFirst(migrate, {
+      names: ["0_user_create.ts", "1_user_add_column_email.ts"],
+      useTransaction: true,
+    });
+  },
+);
+
+interface LockTest extends InitializedMigrationsTest {
+  otherMigrate: PostgresMigrate;
+  time: FakeTime;
+}
+
+const migrateLockTests = new TestSuite({
+  name: "lock",
+  suite: migrateTests,
+  async beforeEach(context: LockTest) {
+    context.migrate = new PostgresMigrate(options);
+    await context.migrate.connect();
+    context.otherMigrate = new PostgresMigrate(options);
+    await context.otherMigrate.connect();
+    context.time = new FakeTime();
+  },
+  async afterEach({ otherMigrate, time }: LockTest) {
+    await otherMigrate.end();
+    time.restore();
+  },
+});
+
+test(migrateLockTests, "works", async ({ migrate, otherMigrate, time }) => {
+  const seq: number[] = [];
+  const main = delay(0)
+    .then(async () => {
+      seq.push(1);
+      const lock = await migrate.lock();
+      seq.push(2);
+      time.tick(1);
+      await migrate.client.queryArray("SELECT NOW()");
+      seq.push(4);
+      await migrate.client.queryArray("SELECT NOW()");
+      time.tick(1000);
+      seq.push(5);
+      await lock.release();
+    });
+  const other = delay(1)
+    .then(async () => {
+      seq.push(3);
+      const lock = await otherMigrate.lock();
+      seq.push(6);
+      await lock.release();
+    });
+  time.tick();
+  await main;
+  time.tick(1000);
+  await other;
+  assertEquals(seq, [1, 2, 3, 4, 5, 6]);
+});
+
+test(migrateLockTests, "abortable", async ({ migrate, otherMigrate, time }) => {
+  const seq: number[] = [];
+  const controller = new AbortController();
+  const main = delay(0)
+    .then(async () => {
+      seq.push(1);
+      const lock = await migrate.lock();
+      seq.push(2);
+      time.tick(1);
+      await migrate.client.queryArray("SELECT NOW()");
+      seq.push(4);
+      await migrate.client.queryArray("SELECT NOW()");
+      controller.abort();
+      seq.push(5);
+      await lock.release();
+    });
+  const other = delay(1)
+    .then(async () => {
+      seq.push(3);
+      const { signal } = controller;
+      await assertRejects(() => otherMigrate.lock({ signal }));
+      seq.push(6);
+    });
+  time.tick();
+  await main;
+  time.tick(1000);
+  await other;
+  assertEquals(seq, [1, 2, 3, 4, 5, 6]);
+});
