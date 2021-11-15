@@ -43,13 +43,46 @@ Examples of how to use migrate with postgres can be found
 different ways to use the migrate module. Only one is required to use the
 migrate tool.
 
-- [migrate.ts](examples/postgres/cli.ts): A cli for the migration tool.
-- [migrate_simple.ts](examples/postgres/migrate.ts): A simple migrate script
-  that will apply all unapplied migrations.
-
 See
 [deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.1.0/postgres.ts)
 for more information.
+
+#### Postgres script
+
+A basic migrate script that will apply all unapplied migrations.
+
+To use this script, copy [migrate.ts](examples/postgres/migrate.ts) and update
+it with your migrate configuration.
+
+```
+$ ./migrate_basic.ts
+Connecting to database
+Acquiring advisory lock
+Acquired advisory lock
+Creating migration table if it does not exist
+Created migration table
+Loading migrations
+Checking for unapplied migrations
+2 unapplied migrations found
+Applying migration: 0_user_create.sql
+Applying migration: 1_user_add_column_email.sql
+Finished applying all migrations
+Releasing advisory lock
+Released advisory lock
+Done
+```
+
+#### Postgres CLI (TODO)
+
+A CLI for the migration tool.
+
+To use this script, copy [migrate_basic.ts](examples/postgres/migrate_basic.ts)
+and update it with your migrate configuration.
+
+```sh
+$ ./migrate.ts status
+# TODO
+```
 
 ## Design decisions
 

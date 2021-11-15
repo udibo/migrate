@@ -1,11 +1,4 @@
-import {
-  Client,
-  delay,
-  dirname,
-  fromFileUrl,
-  resolve,
-  Transaction,
-} from "./deps.ts";
+import { delay, dirname, fromFileUrl, resolve } from "./deps.ts";
 import {
   assert,
   assertEquals,
@@ -19,32 +12,25 @@ import {
   test,
   TestSuite,
 } from "./test_deps.ts";
-import { PostgresMigrate, PostgresMigrateOptions } from "./postgres.ts";
+import { PostgresMigrate } from "./postgres.ts";
 import { Migrate } from "./migrate.ts";
-
-interface PostgresMigrateTest {
-  migrate?: PostgresMigrate;
-}
+import { Client, Transaction } from "./postgres_deps.ts";
+import {
+  cleanupInit,
+  exampleMigrationsDir,
+  InitializedMigrateTest,
+  MigrateTest,
+  options,
+} from "./test_postgres.ts";
 
 const migrateTests = new TestSuite({
   name: "PostgresMigrate",
-  async afterEach({ migrate }: PostgresMigrateTest) {
+  async afterEach({ migrate }: MigrateTest) {
     if (migrate) {
       await migrate.end();
     }
   },
 });
-
-const isTestBuild = Deno.env.get("MIGRATE_TEST_BUILD") === "true";
-const options: PostgresMigrateOptions = {
-  client: {
-    hostname: isTestBuild ? "postgres" : "localhost",
-    port: isTestBuild ? 5432 : 6001,
-    database: "postgres",
-    user: "postgres",
-    password: "postgres",
-  },
-};
 
 test(migrateTests, "client works", async () => {
   const migrate = new PostgresMigrate(options);
@@ -91,22 +77,7 @@ test(migrateTests, "now gets current date from client", async () => {
   await assertRejects(() => client.queryArray("SELECT NOW()"));
 });
 
-async function cleanupInit(migrate: PostgresMigrate) {
-  await migrate.connect();
-  try {
-    const transaction = migrate.client.createTransaction(
-      "postgres_test_cleanup_init",
-    );
-    await transaction.begin();
-    await transaction.queryArray("DROP TABLE migration");
-    await transaction.queryArray("DROP FUNCTION trigger_migration_timestamp");
-    await transaction.commit();
-  } catch {
-    await migrate.connect();
-  }
-}
-
-test(migrateTests, "init", async (context: PostgresMigrateTest) => {
+test(migrateTests, "init", async (context: MigrateTest) => {
   context.migrate = new PostgresMigrate(options);
   const { migrate } = context;
   await cleanupInit(migrate);
@@ -117,7 +88,7 @@ test(migrateTests, "init", async (context: PostgresMigrateTest) => {
 test(
   migrateTests,
   "get returns array of all migrations sorted by id",
-  async (context: PostgresMigrateTest) => {
+  async (context: MigrateTest) => {
     context.migrate = new PostgresMigrate(options);
     const { migrate } = context;
     await cleanupInit(migrate);
@@ -186,7 +157,7 @@ test(
 test(
   migrateTests,
   "getUnapplied returns array of unapplied migrations sorted by id",
-  async (context: PostgresMigrateTest) => {
+  async (context: MigrateTest) => {
     context.migrate = new PostgresMigrate(options);
     const { migrate } = context;
     await cleanupInit(migrate);
@@ -230,14 +201,10 @@ test(
   },
 );
 
-interface InitializedMigrationsTest extends PostgresMigrateTest {
-  migrate: PostgresMigrate;
-}
-
 const migrateLoadTests = new TestSuite({
   name: "load",
   suite: migrateTests,
-  async beforeEach(context: InitializedMigrationsTest) {
+  async beforeEach(context: InitializedMigrateTest) {
     context.migrate = new PostgresMigrate(options);
     const { migrate } = context;
     await cleanupInit(migrate);
@@ -403,7 +370,7 @@ test(
 const migrateApplyTests = new TestSuite({
   name: "apply",
   suite: migrateTests,
-  async beforeEach(context: InitializedMigrationsTest) {
+  async beforeEach(context: InitializedMigrateTest) {
     context.migrate = new PostgresMigrate({
       ...options,
       migrationsDir: await Deno.makeTempDir(),
@@ -417,16 +384,11 @@ const migrateApplyTests = new TestSuite({
       await migrate.connect();
     }
   },
-  async afterEach({ migrate }: InitializedMigrationsTest) {
+  async afterEach({ migrate }: InitializedMigrateTest) {
     await migrate.end();
     await Deno.remove(migrate.migrationsDir, { recursive: true });
   },
 });
-
-const exampleMigrationsDir = resolve(
-  dirname(fromFileUrl(import.meta.url)),
-  "examples/postgres/migrations",
-);
 
 const exampleMigrationFiles = [
   {
@@ -635,7 +597,7 @@ test(
   },
 );
 
-interface LockTest extends InitializedMigrationsTest {
+interface LockTest extends InitializedMigrateTest {
   otherMigrate: PostgresMigrate;
   time: FakeTime;
 }
@@ -663,26 +625,22 @@ test(migrateLockTests, "works", async ({ migrate, otherMigrate, time }) => {
       seq.push(1);
       const lock = await migrate.lock();
       seq.push(2);
-      time.tick(1);
-      await migrate.client.queryArray("SELECT NOW()");
+      await time.tickAsync(1000);
       seq.push(4);
-      await migrate.client.queryArray("SELECT NOW()");
-      time.tick(1000);
-      seq.push(5);
       await lock.release();
     });
   const other = delay(1)
     .then(async () => {
       seq.push(3);
       const lock = await otherMigrate.lock();
-      seq.push(6);
+      seq.push(5);
       await lock.release();
     });
-  time.tick();
+  await time.tickAsync();
   await main;
-  time.tick(1000);
+  await time.tickAsync(1000);
   await other;
-  assertEquals(seq, [1, 2, 3, 4, 5, 6]);
+  assertEquals(seq, [1, 2, 3, 4, 5]);
 });
 
 test(migrateLockTests, "abortable", async ({ migrate, otherMigrate, time }) => {
@@ -693,11 +651,9 @@ test(migrateLockTests, "abortable", async ({ migrate, otherMigrate, time }) => {
       seq.push(1);
       const lock = await migrate.lock();
       seq.push(2);
-      time.tick(1);
-      await migrate.client.queryArray("SELECT NOW()");
-      seq.push(4);
-      await migrate.client.queryArray("SELECT NOW()");
+      await time.tickAsync(1000);
       controller.abort();
+      await time.tickAsync(1000);
       seq.push(5);
       await lock.release();
     });
@@ -706,11 +662,11 @@ test(migrateLockTests, "abortable", async ({ migrate, otherMigrate, time }) => {
       seq.push(3);
       const { signal } = controller;
       await assertRejects(() => otherMigrate.lock({ signal }));
-      seq.push(6);
+      seq.push(4);
     });
-  time.tick();
+  await time.tickAsync(0);
   await main;
-  time.tick(1000);
+  await time.tickAsync(1000);
   await other;
-  assertEquals(seq, [1, 2, 3, 4, 5, 6]);
+  assertEquals(seq, [1, 2, 3, 4, 5]);
 });

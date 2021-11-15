@@ -26,6 +26,8 @@ linting and formatting. The run command will start a postgres service and run
 all the tests.
 
 ```sh
+make test-build
+# or
 docker-compose build test
 docker-compose run test
 ```
