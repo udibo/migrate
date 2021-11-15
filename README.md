@@ -1,11 +1,11 @@
-# OAuth2 Server
+# Migrate
 
 [![version](https://img.shields.io/badge/release-0.1.0-success)](https://deno.land/x/migrate@0.1.0)
 [![CI](https://github.com/udibo/migrate/workflows/CI/badge.svg)](https://github.com/udibo/migrate/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/udibo/migrate/branch/main/graph/badge.svg?token=8Q7TSUFWUY)](https://codecov.io/gh/udibo/migrate)
 [![license](https://img.shields.io/github/license/udibo/migrate)](https://github.com/udibo/migrate/blob/master/LICENSE)
 
-A migration tool for Deno.
+A postgres migration tool for Deno.
 
 This module was inspired by
 [postgres-migrations](https://www.npmjs.com/package/postgres-migrations).
