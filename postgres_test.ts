@@ -309,7 +309,7 @@ test(
       assert(migration.updatedAt >= before);
       assert(migration.updatedAt <= after);
 
-      assertEquals(migrations.slice(2), []);
+      assertEquals(migrations.slice(1), []);
     } finally {
       getFiles.restore();
     }
@@ -482,11 +482,16 @@ test(
               ${JSON.stringify(migrationFile.text)},
               ${
           JSON.stringify({
+            text: `INSERT INTO "user" (id, username) VALUES (100, 'user100')`,
+          })
+        },
+              ${
+          JSON.stringify({
             text: 'INSERT INTO "user" (id, username) VALUES ($1, $2)',
             args: [index, `user${index}`],
           })
         },
-            ]
+            ];
           }
         `,
       );
@@ -514,11 +519,16 @@ test(
               ${JSON.stringify(migrationFile.text)},
               ${
           JSON.stringify({
+            text: `INSERT INTO "user" (id, username) VALUES (100, 'user100')`,
+          })
+        },
+              ${
+          JSON.stringify({
             text: 'INSERT INTO "user" (id, username) VALUES ($1, $2)',
             args: [index, `user${index}`],
           })
         },
-            ]
+            ];
           }
         `,
       );
@@ -597,6 +607,116 @@ test(
   },
 );
 
+async function assertApplyError(migrate: Migrate, expect: {
+  names: string[];
+  useTransaction: boolean;
+  errorMsg: string;
+}): Promise<void> {
+  const { names, useTransaction, errorMsg } = expect;
+
+  const before = await migrate.now();
+  await migrate.load();
+  const afterLoad = await migrate.now();
+  let migrations = await migrate.getUnapplied();
+  const applyQueries = spy(migrate, "_applyQueries");
+  try {
+    await assertRejects(() => migrate.apply(migrations[0]), Error, errorMsg);
+  } finally {
+    applyQueries.restore();
+  }
+
+  const call = assertSpyCall(applyQueries, 0);
+  assert(
+    call.args[1] instanceof (useTransaction ? Transaction : Client),
+    `expected ${useTransaction ? "transaction" : "client"} but used ${
+      useTransaction ? "client" : "transaction"
+    }`,
+  );
+  assertSpyCalls(applyQueries, 1);
+
+  migrations = await migrate.getAll();
+  let migration = migrations[0];
+  assertObjectMatch(migration, {
+    id: 0,
+    path: names[0],
+    appliedPath: null,
+    appliedAt: null,
+  });
+  let { createdAt, updatedAt } = migration;
+  assert(createdAt >= before);
+  assert(createdAt <= afterLoad);
+  assertEquals(updatedAt, createdAt);
+
+  migration = migrations[1];
+  assertObjectMatch(migration, {
+    id: 1,
+    path: names[1],
+    appliedPath: null,
+    appliedAt: null,
+  });
+  ({ createdAt, updatedAt } = migration);
+  assert(createdAt >= before);
+  assert(createdAt <= afterLoad);
+  assertEquals(updatedAt, createdAt);
+
+  assertEquals(migrations.slice(2), []);
+}
+
+test(
+  migrateApplyTests,
+  "rollback on transaction error",
+  async ({ migrate }) => {
+    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
+      await Deno.writeTextFile(
+        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
+        `
+          import type { MigrationQuery } from "${migrateImportPath}";
+          export function generateQueries(): MigrationQuery[] {
+            return [
+              ${JSON.stringify(migrationFile.text)},
+              'INSERT INTO "user" (id, username) VALUES (100, NULL)',
+            ];
+          }
+        `,
+      );
+    }
+
+    await assertApplyError(migrate, {
+      names: ["0_user_create.ts", "1_user_add_column_email.ts"],
+      useTransaction: true,
+      errorMsg: "violates not-null constraint",
+    });
+  },
+);
+
+test(
+  migrateApplyTests,
+  "rollback on runtime error",
+  async ({ migrate }) => {
+    for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
+      await Deno.writeTextFile(
+        resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
+        `
+          import type { MigrationQuery } from "${migrateImportPath}";
+          import { delay } from "${depsImportPath}";
+          export async function* generateQueries(): AsyncIterator<MigrationQuery> {
+            await delay(0);
+            yield ${JSON.stringify(migrationFile.text)};
+            await delay(0);
+            throw new Error("something went wrong");
+          }
+        `,
+      );
+    }
+
+    await assertApplyError(migrate, {
+      names: ["0_user_create.ts", "1_user_add_column_email.ts"],
+      useTransaction: true,
+      errorMsg: "something went wrong",
+    });
+  },
+);
+
 interface LockTest extends InitializedMigrateTest {
   otherMigrate: PostgresMigrate;
   time: FakeTime;
@@ -651,6 +771,7 @@ test(migrateLockTests, "abortable", async ({ migrate, otherMigrate, time }) => {
       seq.push(1);
       const lock = await migrate.lock();
       seq.push(2);
+      await time.tickAsync(1000);
       await time.tickAsync(1000);
       controller.abort();
       await time.tickAsync(1000);

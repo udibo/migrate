@@ -1,6 +1,6 @@
 # Migrate
 
-[![version](https://img.shields.io/badge/release-0.1.0-success)](https://deno.land/x/migrate@0.1.0)
+[![version](https://img.shields.io/badge/release-0.2.0-success)](https://deno.land/x/migrate@0.2.0)
 [![CI](https://github.com/udibo/migrate/workflows/CI/badge.svg)](https://github.com/udibo/migrate/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/udibo/migrate/branch/main/graph/badge.svg?token=8Q7TSUFWUY)](https://codecov.io/gh/udibo/migrate)
 [![license](https://img.shields.io/github/license/udibo/migrate)](https://github.com/udibo/migrate/blob/master/LICENSE)
@@ -21,9 +21,9 @@ Currently migrate is only implemented for Postgres. The main entrypoint is
 
 ```ts
 // Import from Deno's third party module registry
-import { PostgresMigrate } from "https://deno.land/x/migrate@0.1.0/postgres.ts";
+import { PostgresMigrate } from "https://deno.land/x/migrate@0.2.0/postgres.ts";
 // Import from GitHub
-import { PostgresMigrate } "https://raw.githubusercontent.com/udibo/migrate/0.1.0/postgres.ts";
+import { PostgresMigrate } "https://raw.githubusercontent.com/udibo/migrate/0.2.0/postgres.ts";
 ```
 
 ## Usage
@@ -33,7 +33,7 @@ import { PostgresMigrate } "https://raw.githubusercontent.com/udibo/migrate/0.1.
 To use the command line interface, you must create a script that will initialize
 the Migrate instance and call the run command from [cli.ts](cli.ts).
 
-See [deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.1.0/cli.ts)
+See [deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.2.0/cli.ts)
 for more information.
 
 ### Postgres
@@ -44,7 +44,7 @@ different ways to use the migrate module. Only one is required to use the
 migrate tool.
 
 See
-[deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.1.0/postgres.ts)
+[deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.2.0/postgres.ts)
 for more information.
 
 #### Postgres script
@@ -84,6 +84,8 @@ $ ./migrate.ts status
 # TODO
 ```
 
+See [CLI](#cli) for more information about available CLI commands.
+
 ## Design decisions
 
 ### Roll forward migrations only
@@ -110,7 +112,8 @@ complete successfully or roll back any changes that were applied before a
 failure.
 
 If you have a migration that cannot be run inside a transaction, you can disable
-it for that file.
+it for that file. This allows migrations such as `CREATE INDEX CONCURRENTLY`
+which cannot be run inside a transaction.
 
 ### Multiple file formats
 
@@ -127,16 +130,19 @@ migration filenames.
 
 #### SQL migration
 
-To disable the use of a transaction for a SQL migration file, add a comment to
-the top of the file.
+A SQL migration file should just contain plain SQL. It can have multiple queries
+in it. All queries will run in a transaction unless you explicitly disable using
+transactions.
 
 ```sql
--- migrate disableTransaction
 CREATE TABLE "user" (
   id INT PRIMARY KEY,
   username VARCHAR(256) UNIQUE NOT NULL
 );
 ```
+
+To disable the use of a transaction for a SQL migration file, add
+`-- migrate disableTransaction` as a SQL comment to the start of the file.
 
 #### JSON migration
 

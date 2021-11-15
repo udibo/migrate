@@ -31,21 +31,22 @@ const applyTests = new TestSuite({
   },
 });
 
-test(applyTests, "works", async ({ migrate }) => {
-  const runMigrateBasic = () =>
-    Deno.run({
+test(
+  applyTests,
+  "creates migration table and applies all migrations",
+  async ({ migrate }) => {
+    const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate_basic.ts"),
       ],
       stdout: "piped",
     });
-  let process = runMigrateBasic();
-  try {
-    let output = await process.output();
-    const decoder = new TextDecoder();
-    assertEquals(
-      decoder.decode(output),
-      `\
+    try {
+      const output = await process.output();
+      const decoder = new TextDecoder();
+      assertEquals(
+        decoder.decode(output),
+        `\
 Connecting to database
 Acquiring advisory lock
 Acquired advisory lock
@@ -61,11 +62,68 @@ Releasing advisory lock
 Released advisory lock
 Done
 `,
-    );
-    process.close();
+      );
+    } finally {
+      process.close();
+    }
+  },
+);
 
-    process = runMigrateBasic();
-    output = await process.output();
+test(applyTests, "applies unapplied migrations", async ({ migrate }) => {
+  await migrate.connect();
+  await migrate.init();
+  await migrate.load();
+  const migrations = await migrate.getUnapplied();
+  await migrate.apply(migrations[0]);
+  const process = Deno.run({
+    cmd: [
+      resolve(migrate.migrationsDir, "../migrate_basic.ts"),
+    ],
+    stdout: "piped",
+  });
+  try {
+    const output = await process.output();
+    const decoder = new TextDecoder();
+    assertEquals(
+      decoder.decode(output),
+      `\
+Connecting to database
+Acquiring advisory lock
+Acquired advisory lock
+Creating migration table if it does not exist
+Migration table already exists
+Loading migrations
+Checking for unapplied migrations
+1 unapplied migration found
+Applying migration: 1_user_add_column_email.sql
+Finished applying all migrations
+Releasing advisory lock
+Released advisory lock
+Done
+`,
+    );
+  } finally {
+    process.close();
+  }
+});
+
+test(applyTests, "no unapplied migrations", async ({ migrate }) => {
+  await migrate.connect();
+  await migrate.init();
+  await migrate.load();
+  const migrations = await migrate.getUnapplied();
+  for (const migration of migrations) {
+    await migrate.apply(migration);
+  }
+  const process = Deno.run({
+    cmd: [
+      resolve(migrate.migrationsDir, "../migrate_basic.ts"),
+    ],
+    stdout: "piped",
+  });
+  try {
+    const output = await process.output();
+    const decoder = new TextDecoder();
     assertEquals(
       decoder.decode(output),
       `\

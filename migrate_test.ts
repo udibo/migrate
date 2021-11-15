@@ -377,7 +377,7 @@ test(
       export function generateQueries() {
         return [
           {text:${JSON.stringify(migrationFile)}},
-        ]
+        ];
       }
     `;
     await Deno.writeTextFile(
@@ -405,7 +405,7 @@ test(
       export function generateQueries() {
         return [
           {text:${JSON.stringify(migrationFile)}},
-        ]
+        ];
       }
     `;
     await Deno.writeTextFile(
@@ -438,7 +438,7 @@ test(
       export function generateQueries(): MigrationQuery[] {
         return [
           {text:${JSON.stringify(migrationFile)}},
-        ]
+        ];
       }
     `;
     await Deno.writeTextFile(
@@ -467,7 +467,7 @@ test(
       export function generateQueries(): MigrationQuery[] {
         return [
           {text:${JSON.stringify(migrationFile)}},
-        ]
+        ];
       }
     `;
     await Deno.writeTextFile(
@@ -555,5 +555,61 @@ test(
       ],
       useTransaction: true,
     });
+  },
+);
+
+test(
+  migrateGetPlanTests,
+  "error if migration script missing generateQueries export",
+  async ({ migrate }) => {
+    const migration = migrationFromFile({
+      id: 0,
+      path: "0_user_create.ts",
+    });
+    const script = `
+      import type { MigrationQuery } from "${migrateImportPath}";
+      export function generate(): MigrationQuery[] {
+        return [
+          {text:${JSON.stringify(migrationFile)}},
+        ];
+      }
+    `;
+    await Deno.writeTextFile(
+      migrate.resolve(migration),
+      script,
+    );
+
+    assertRejects(
+      () => migrate.getPlan(migration),
+      Error,
+      "migration script must export generateQueries function",
+    );
+  },
+);
+
+test(
+  migrateGetPlanTests,
+  "error if migration script generateQueries export is not a function",
+  async ({ migrate }) => {
+    const migration = migrationFromFile({
+      id: 0,
+      path: "0_user_create.ts",
+    });
+    const script = `
+      import type { MigrationQuery } from "${migrateImportPath}";
+      export const generateQueries = [
+        {text:${JSON.stringify(migrationFile)}},
+      ];
+    `;
+    await Deno.writeTextFile(
+      migrate.resolve(migration),
+      script,
+    );
+
+    await assertRejects(
+      () => migrate.getPlan(migration),
+      Error,
+      "generateQueries is not a function",
+    );
   },
 );
