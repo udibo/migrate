@@ -11,8 +11,20 @@ import {
   MigrateOptions,
   Migration,
   MigrationQuery,
+  MigrationQueryConfig,
 } from "./migrate.ts";
 import { delay } from "./deps.ts";
+
+export { Client, Migrate, Transaction, TransactionError };
+export type {
+  ClientOptions,
+  MigrateLock,
+  MigrateLockOptions,
+  MigrateOptions,
+  Migration,
+  MigrationQuery,
+  MigrationQueryConfig,
+};
 
 const DEFAULT_LOCK_ID = -8525285245963000605n;
 export interface PostgresMigrateLockOptions extends MigrateLockOptions {
