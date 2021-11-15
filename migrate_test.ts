@@ -579,7 +579,7 @@ test(
       script,
     );
 
-    assertRejects(
+    await assertRejects(
       () => migrate.getPlan(migration),
       Error,
       "migration script must export generateQueries function",
