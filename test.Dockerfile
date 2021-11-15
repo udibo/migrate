@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-1.16.1
+FROM denoland/deno:1.16.1
 WORKDIR /app
 
 # Install wait utility
@@ -21,4 +21,4 @@ RUN deno cache postgres.ts
 RUN deno lint
 RUN deno fmt --check
 
-CMD /wait && deno test -A --jobs
+CMD /wait && deno test -A
