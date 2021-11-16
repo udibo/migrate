@@ -6,3 +6,4 @@ export {
 
 export { PostgresMigrate } from "../../postgres.ts";
 export { apply } from "../../basic.ts";
+export { run } from "../../cli.ts";

@@ -356,9 +356,9 @@ test(
         path: "unapplied/1_user_add_column_email.sql",
         appliedPath: null,
       });
-      assert(migration.createdAt >= before);
-      assert(migration.createdAt <= after);
-      assertEquals(migration.updatedAt, migration.createdAt);
+      assert(migration.createdAt <= before);
+      assert(migration.updatedAt >= before);
+      assert(migration.updatedAt <= after);
 
       assertEquals(migrations.slice(2), []);
     } finally {

@@ -28,13 +28,129 @@ import { PostgresMigrate } "https://raw.githubusercontent.com/udibo/migrate/0.2.
 
 ## Usage
 
-### CLI (TODO)
+### CLI
 
 To use the command line interface, you must create a script that will initialize
-the Migrate instance and call the run command from [cli.ts](cli.ts).
+the Migrate instance and call the run command from [cli.ts](cli.ts). An example
+can be found [here](#postgres-cli).
 
 See [deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.2.0/cli.ts)
 for more information.
+
+#### Command: init
+
+Initializes the migration table for tracking which migrations have been applied.
+
+```
+$ ./migrate.ts init
+Connecting to database
+Creating migration table if it does not exist
+Created migration table
+```
+
+#### Command: load
+
+Loads all migrations current path values into the migration table.
+
+```
+$ ./migrate.ts load
+Connecting to database
+Acquiring migrate lock
+Acquired migrate lock
+Loading migrations
+2 new migrations found
+1 migration updated
+No migrations deleted
+Releasing migrate lock
+Released migrate lock
+Done
+```
+
+#### Command: status
+
+Outputs the status of all migrations. By default it just outputs the counts.
+
+```
+$ ./migrate.ts status
+Connecting to database
+Checking loaded migrations
+Status:
+  Total: 5
+  Applied: 4
+  File moved: 1
+  File deleted: 1
+  Not applied: 1
+```
+
+If the --details or -d flag is provided, it will log the filenames of migrations
+that have not been applied or have been changed since being applied.
+
+```
+$ ./migrate.ts status --details
+Connecting to database
+Checking loaded migrations
+Status:
+  Total: 5
+  Applied: 4
+  File moved: 1
+    2_user_add_kyle.sql -> 2_user_add_kyle.ts
+  File deleted: 1
+    3_user_add_staff.sql
+  Not applied: 1
+    4_user_add_column_email.sql
+```
+
+#### Command: list
+
+Outputs a list of migrations. By default it outputs all migrations.
+
+```
+$ ./migrate.ts list
+Connecting to database
+Checking loaded migrations
+All migrations:
+  0_user_create.sql
+    applied at: Tue Nov 09 2021 12:10:32 GMT-0600 (Central Standard Time)
+  1_user_add_admin.sql
+    applied at: Wed Nov 11 2021 18:31:08 GMT-0600 (Central Standard Time)
+  2_user_add_kyle.sql
+    applied at: Sat Nov 13 2021 05:31:08 GMT-0600 (Central Standard Time)
+    file moved to: 2_user_add_kyle.ts
+  3_user_add_staff.sql
+    applied at: Mon Nov 15 2021 15:31:08 GMT-0600 (Central Standard Time)
+    file deleted
+  4_user_add_column_email.sql
+    not applied
+```
+
+If the --filter flag is provided, it will filter the migrations to only include
+migrations that match the filter. The filter options are applied, unapplied,
+renamed, and deleted.
+
+```
+$ ./migrate.ts list --filter=unapplied
+Unapplied migrations:
+  4_user_add_column_email.sql
+```
+
+#### Command: apply
+
+Applies all unapplied migrations and outputs the filenames.
+
+```
+$ ./migrate.ts apply
+Connecting to database
+Acquiring migrate lock
+Acquired migrate lock
+Checking loaded migrations
+2 unapplied migrations
+Applying migration: 0_user_create.sql
+Applying migration: 1_user_add_column_email.sql
+Finished applying all migrations
+Releasing migrate lock
+Released migrate lock
+Done
+```
 
 ### Postgres
 
@@ -51,8 +167,8 @@ for more information.
 
 A basic migrate script that will apply all unapplied migrations.
 
-To use this script, copy [migrate.ts](examples/postgres/migrate.ts) and update
-it with your migrate configuration.
+To use this script, copy [migrate_basic.ts](examples/postgres/migrate_basic.ts)
+and update it with your migrate configuration.
 
 ```
 $ ./migrate_basic.ts
@@ -72,16 +188,21 @@ Released advisory lock
 Done
 ```
 
-#### Postgres CLI (TODO)
+#### Postgres CLI
 
 A CLI for the migration tool.
 
-To use this script, copy [migrate_basic.ts](examples/postgres/migrate_basic.ts)
-and update it with your migrate configuration.
+To use this script, copy [migrate.ts](examples/postgres/migrate.ts) and update
+it with your migrate configuration.
 
-```sh
+```
 $ ./migrate.ts status
-# TODO
+Connecting to database
+Checking loaded migrations
+Status:
+  Total: 5
+  Applied: 4
+  Not applied: 1
 ```
 
 See [CLI](#cli) for more information about available CLI commands.

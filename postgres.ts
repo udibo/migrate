@@ -92,17 +92,22 @@ export class PostgresMigrate<GenerateOptions = unknown>
   async load(): Promise<void> {
     const migrationFiles = await this.getFiles();
 
-    type Row = Pick<Migration, "id" | "appliedPath">;
+    type Row = Pick<Migration, "id" | "path" | "appliedPath">;
     const { rows } = await this.client.queryObject<Row>({
-      text: `SELECT id, applied_path FROM migration WHERE path IS NOT NULL`,
+      text:
+        `SELECT id, path, applied_path FROM migration WHERE path IS NOT NULL`,
       camelcase: true,
     });
-    const deletedMigrations = new Set<Row>();
-    for (const row of rows) {
-      deletedMigrations.add(row);
+    const migrationPaths = new Map<number, string>();
+    const appliedMigrationIds = new Set<number>();
+    const deletedMigrationIds = new Set<number>();
+    for (const { id, path, appliedPath } of rows) {
+      deletedMigrationIds.add(id);
+      if (path) migrationPaths.set(id, path);
+      if (appliedPath) appliedMigrationIds.add(id);
     }
-    for (const row of migrationFiles) {
-      deletedMigrations.delete(row);
+    for (const { id } of migrationFiles) {
+      deletedMigrationIds.delete(id);
     }
 
     const UPSERT_MIGRATION_FILE_SQL = `
@@ -111,8 +116,8 @@ export class PostgresMigrate<GenerateOptions = unknown>
         ON CONFLICT (id)
           DO UPDATE SET path = EXCLUDED.path;
     `;
-    for (const { id, appliedPath } of deletedMigrations) {
-      if (appliedPath) {
+    for (const id of deletedMigrationIds) {
+      if (appliedMigrationIds.has(id)) {
         await this.client.queryArray(UPSERT_MIGRATION_FILE_SQL, id, null);
       } else {
         await this.client.queryArray`DELETE FROM migration WHERE id = ${id}`;
@@ -120,7 +125,9 @@ export class PostgresMigrate<GenerateOptions = unknown>
     }
 
     for (const { id, path } of migrationFiles) {
-      await this.client.queryArray(UPSERT_MIGRATION_FILE_SQL, id, path);
+      if (path !== migrationPaths.get(id)) {
+        await this.client.queryArray(UPSERT_MIGRATION_FILE_SQL, id, path);
+      }
     }
   }
 

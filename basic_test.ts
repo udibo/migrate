@@ -1,4 +1,4 @@
-import { resolve } from "./deps.ts";
+import { delay, resolve } from "./deps.ts";
 import { PostgresMigrate } from "./postgres.ts";
 import { assertEquals, test, TestSuite } from "./test_deps.ts";
 import {
@@ -7,6 +7,7 @@ import {
   InitializedMigrateTest,
   options,
 } from "./test_postgres.ts";
+import "./basic.ts";
 
 const applyTests = new TestSuite({
   name: "apply",
@@ -48,18 +49,18 @@ test(
         decoder.decode(output),
         `\
 Connecting to database
-Acquiring advisory lock
-Acquired advisory lock
+Acquiring migrate lock
+Acquired migrate lock
 Creating migration table if it does not exist
 Created migration table
 Loading migrations
-Checking for unapplied migrations
-2 unapplied migrations found
+2 new migrations found
+2 unapplied migrations
 Applying migration: 0_user_create.sql
 Applying migration: 1_user_add_column_email.sql
 Finished applying all migrations
-Releasing advisory lock
-Released advisory lock
+Releasing migrate lock
+Released migrate lock
 Done
 `,
       );
@@ -75,6 +76,9 @@ test(applyTests, "applies unapplied migrations", async ({ migrate }) => {
   await migrate.load();
   const migrations = await migrate.getUnapplied();
   await migrate.apply(migrations[0]);
+  await migrate.end();
+  await delay(1);
+
   const process = Deno.run({
     cmd: [
       resolve(migrate.migrationsDir, "../migrate_basic.ts"),
@@ -88,17 +92,19 @@ test(applyTests, "applies unapplied migrations", async ({ migrate }) => {
       decoder.decode(output),
       `\
 Connecting to database
-Acquiring advisory lock
-Acquired advisory lock
+Acquiring migrate lock
+Acquired migrate lock
 Creating migration table if it does not exist
 Migration table already exists
 Loading migrations
-Checking for unapplied migrations
-1 unapplied migration found
+No new migrations found
+No migrations updated
+No migrations deleted
+1 unapplied migration
 Applying migration: 1_user_add_column_email.sql
 Finished applying all migrations
-Releasing advisory lock
-Released advisory lock
+Releasing migrate lock
+Released migrate lock
 Done
 `,
     );
@@ -115,6 +121,9 @@ test(applyTests, "no unapplied migrations", async ({ migrate }) => {
   for (const migration of migrations) {
     await migrate.apply(migration);
   }
+  await migrate.end();
+  await delay(1);
+
   const process = Deno.run({
     cmd: [
       resolve(migrate.migrationsDir, "../migrate_basic.ts"),
@@ -128,15 +137,17 @@ test(applyTests, "no unapplied migrations", async ({ migrate }) => {
       decoder.decode(output),
       `\
 Connecting to database
-Acquiring advisory lock
-Acquired advisory lock
+Acquiring migrate lock
+Acquired migrate lock
 Creating migration table if it does not exist
 Migration table already exists
 Loading migrations
-Checking for unapplied migrations
-No unapplied migrations found
-Releasing advisory lock
-Released advisory lock
+No new migrations found
+No migrations updated
+No migrations deleted
+No unapplied migrations
+Releasing migrate lock
+Released migrate lock
 Done
 `,
     );
