@@ -84,7 +84,7 @@ The examples can be run from any directory since the migrationsDir is resolved
 from the modules url.
 
 ```
-deno run -A examples/postgres/migrate_simple.ts
+deno run -A examples/postgres/migrate_basic.ts
 // or
 deno run -A examples/postgres/migrate.ts status
 ```
