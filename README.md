@@ -173,8 +173,8 @@ and update it with your migrate configuration.
 ```
 $ ./migrate_basic.ts
 Connecting to database
-Acquiring advisory lock
-Acquired advisory lock
+Acquiring migrate lock
+Acquired migrate lock
 Creating migration table if it does not exist
 Created migration table
 Loading migrations
@@ -183,8 +183,8 @@ Checking for unapplied migrations
 Applying migration: 0_user_create.sql
 Applying migration: 1_user_add_column_email.sql
 Finished applying all migrations
-Releasing advisory lock
-Released advisory lock
+Releasing migrate lock
+Released migrate lock
 Done
 ```
 
