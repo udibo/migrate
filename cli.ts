@@ -22,7 +22,7 @@ export async function init(migrate: Migrate): Promise<void> {
 
 /**
  * Loads all migrations current path values into the migration table.
- * Returns all unapplied migrations.
+ * Returns all loaded migrations.
  */
 export async function loadMigrations(migrate: Migrate): Promise<Migration[]> {
   console.log("Loading migrations");
