@@ -5,8 +5,6 @@ services:
     image: postgres:14
     hostname: postgres
     environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
       - "6001:5432"

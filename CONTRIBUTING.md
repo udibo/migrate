@@ -17,8 +17,6 @@ You must install `docker`, `docker-compose`, and `deno`.
 For development, the tests can be run with docker or deno. The GitHub actions
 uses the docker build to run the tests.
 
-Consider getting rid of the docker section.
-
 ### Docker
 
 The build command will run `deno lint` and `deno fmt --check` to check the
