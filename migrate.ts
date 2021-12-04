@@ -4,6 +4,7 @@ import {
   relative,
   resolve,
   StringReader,
+  toFileUrl,
   walk,
 } from "./deps.ts";
 
@@ -158,7 +159,7 @@ export abstract class Migrate<GenerateOptions = unknown> {
     } else {
       const { generateQueries, disableTransaction }: MigrationScript<
         GenerateOptions
-      > = await import(path);
+      > = await import(toFileUrl(path).href);
       if (!generateQueries) {
         throw new Error(
           "migration script must export generateQueries function",
