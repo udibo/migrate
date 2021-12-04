@@ -67,10 +67,11 @@ export class PostgresMigrate<GenerateOptions = unknown>
       );
     `;
     await transaction.queryArray`
-      CREATE FUNCTION trigger_migration_timestamp()
-      RETURNS TRIGGER AS $$
+      CREATE FUNCTION trigger_migration_timestamp() RETURNS TRIGGER AS $$
         BEGIN
-          NEW.updated_at = now();
+          IF NEW.updated_at = OLD.updated_at THEN
+            NEW.updated_at = now();
+          END IF;
           RETURN NEW;
         END;
       $$ LANGUAGE plpgsql;
