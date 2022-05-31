@@ -119,7 +119,7 @@ export class PostgresMigrate<GenerateOptions = unknown>
     `;
     for (const id of deletedMigrationIds) {
       if (appliedMigrationIds.has(id)) {
-        await this.client.queryArray(UPSERT_MIGRATION_FILE_SQL, id, null);
+        await this.client.queryArray(UPSERT_MIGRATION_FILE_SQL, [id, null]);
       } else {
         await this.client.queryArray`DELETE FROM migration WHERE id = ${id}`;
       }
@@ -127,7 +127,7 @@ export class PostgresMigrate<GenerateOptions = unknown>
 
     for (const { id, path } of migrationFiles) {
       if (path !== migrationPaths.get(id)) {
-        await this.client.queryArray(UPSERT_MIGRATION_FILE_SQL, id, path);
+        await this.client.queryArray(UPSERT_MIGRATION_FILE_SQL, [id, path]);
       }
     }
   }
@@ -161,7 +161,7 @@ export class PostgresMigrate<GenerateOptions = unknown>
         await clientOrTransaction.queryArray(query);
       } else {
         const { text, args } = query;
-        await clientOrTransaction.queryArray(text, ...(args ?? []));
+        await clientOrTransaction.queryArray(text, args);
       }
     }
     clientOrTransaction.queryArray

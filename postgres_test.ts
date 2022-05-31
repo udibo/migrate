@@ -6,6 +6,7 @@ import {
   assertRejects,
   assertSpyCall,
   assertSpyCalls,
+  assertThrows,
   FakeTime,
   spy,
   stub,
@@ -13,7 +14,6 @@ import {
   TestSuite,
 } from "./test_deps.ts";
 import { PostgresMigrate } from "./postgres.ts";
-import { Migrate } from "./migrate.ts";
 import { Client, Transaction } from "./postgres_deps.ts";
 import {
   cleanupInit,
@@ -38,7 +38,7 @@ test(migrateTests, "client works", async () => {
   await migrate.connect();
   await client.queryArray("SELECT NOW()");
   await migrate.end();
-  await assertRejects(() => client.queryArray("SELECT NOW()"));
+  assertThrows(() => client.queryArray("SELECT NOW()"));
 });
 
 test(
@@ -52,7 +52,7 @@ test(
     await client.queryArray("SELECT NOW()");
     await migrate.end();
     await migrate.end();
-    await assertRejects(() => client.queryArray("SELECT NOW()"));
+    assertThrows(() => client.queryArray("SELECT NOW()"));
   },
 );
 
@@ -74,7 +74,7 @@ test(migrateTests, "now gets current date from client", async () => {
   assert(actual <= after);
 
   await migrate.end();
-  await assertRejects(() => client.queryArray("SELECT NOW()"));
+  assertThrows(() => client.queryArray("SELECT NOW()"));
 });
 
 test(migrateTests, "init", async (context: MigrateTest) => {
@@ -405,7 +405,7 @@ const exampleMigrationFiles = [
   },
 ];
 
-async function assertApplyFirst(migrate: Migrate, expect: {
+async function assertApplyFirst(migrate: PostgresMigrate, expect: {
   names: string[];
   useTransaction: boolean;
 }): Promise<void> {
@@ -423,9 +423,9 @@ async function assertApplyFirst(migrate: Migrate, expect: {
   }
   const afterApply = await migrate.now();
 
-  const call = assertSpyCall(applyQueries, 0);
+  assertSpyCall(applyQueries, 0);
   assert(
-    call.args[1] instanceof (useTransaction ? Transaction : Client),
+    applyQueries.calls[0].args[1] instanceof (useTransaction ? Transaction : Client),
     `expected ${useTransaction ? "transaction" : "client"} but used ${
       useTransaction ? "client" : "transaction"
     }`,
@@ -607,7 +607,7 @@ test(
   },
 );
 
-async function assertApplyError(migrate: Migrate, expect: {
+async function assertApplyError(migrate: PostgresMigrate, expect: {
   names: string[];
   useTransaction: boolean;
   errorMsg: string;
@@ -625,9 +625,9 @@ async function assertApplyError(migrate: Migrate, expect: {
     applyQueries.restore();
   }
 
-  const call = assertSpyCall(applyQueries, 0);
+  assertSpyCall(applyQueries, 0);
   assert(
-    call.args[1] instanceof (useTransaction ? Transaction : Client),
+    applyQueries.calls[0].args[1] instanceof (useTransaction ? Transaction : Client),
     `expected ${useTransaction ? "transaction" : "client"} but used ${
       useTransaction ? "client" : "transaction"
     }`,
