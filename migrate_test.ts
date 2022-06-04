@@ -10,9 +10,9 @@ import {
   assertEquals,
   assertRejects,
   assertThrows,
+  describe,
   ensureDir,
-  test,
-  TestSuite,
+  it,
 } from "./test_deps.ts";
 
 function migrationFromFile(
@@ -70,19 +70,20 @@ interface MigrateTest {
   migrate: Migrate;
 }
 
-const migrateTests = new TestSuite<MigrateTest>({
+const migrateTests = describe<MigrateTest>({
   name: "Migrate",
-  async beforeEach(context) {
-    context.migrate = new FakeMigrate({
+  async beforeEach() {
+    this.migrate = new FakeMigrate({
       migrationsDir: await Deno.makeTempDir(),
     });
   },
-  async afterEach({ migrate }) {
-    await Deno.remove(migrate.migrationsDir, { recursive: true });
+  async afterEach() {
+    await Deno.remove(this.migrate.migrationsDir, { recursive: true });
   },
 });
 
-test(migrateTests, "resolve works", ({ migrate }) => {
+it(migrateTests, "resolve works", function () {
+  const { migrate } = this;
   let migration = migrationFromFile({
     id: 1,
     path: "0_user_create.sql",
@@ -107,7 +108,7 @@ test(migrateTests, "resolve works", ({ migrate }) => {
   );
 });
 
-const migrateGetFilesTests = new TestSuite({
+const migrateGetFilesTests = describe({
   name: "getFiles",
   suite: migrateTests,
 });
@@ -125,10 +126,11 @@ async function assertMigrationFiles(
   assertEquals(actual, expected);
 }
 
-test(
+it(
   migrateGetFilesTests,
   "finds migrations in directory",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const expected: MigrationFile[] = [];
     await assertMigrationFiles(migrate, expected);
 
@@ -147,10 +149,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetFilesTests,
   "finds migrations in child directories",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const expected: MigrationFile[] = [];
     await assertMigrationFiles(migrate, expected);
 
@@ -171,10 +174,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetFilesTests,
   "recognizes migrations without name",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const expected: MigrationFile[] = [];
     await assertMigrationFiles(migrate, expected);
 
@@ -185,10 +189,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetFilesTests,
   "recognizes migrations with json, js, or ts extensions",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const expected: MigrationFile[] = [];
     await assertMigrationFiles(migrate, expected);
 
@@ -211,10 +216,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetFilesTests,
   "ignores non migration files",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const expected: MigrationFile[] = [];
     await assertMigrationFiles(migrate, expected);
 
@@ -231,10 +237,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetFilesTests,
   "rejects on migration file index collision",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const expected: MigrationFile[] = [];
     await assertMigrationFiles(migrate, expected);
 
@@ -252,12 +259,12 @@ test(
   },
 );
 
-const migrateGetPlanTests = new TestSuite({
+const migrateGetPlanTests = describe({
   name: "getPlan",
   suite: migrateTests,
-  beforeEach(context: MigrateTest) {
-    context.migrate = new FakeMigrate({
-      migrationsDir: context.migrate.migrationsDir,
+  beforeEach() {
+    this.migrate = new FakeMigrate({
+      migrationsDir: this.migrate.migrationsDir,
     });
   },
 });
@@ -283,10 +290,11 @@ async function assertPlan(migrate: Migrate, migration: Migration, expect: {
   assertEquals(actualQueries, queries);
 }
 
-test(
+it(
   migrateGetPlanTests,
   "from sql migration file",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.sql",
@@ -302,10 +310,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from sql migration file with disableTransaction",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.sql",
@@ -323,10 +332,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from json migration file",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.json",
@@ -344,10 +354,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from json migration file with disableTransaction",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.json",
@@ -365,10 +376,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from js migration file",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.js",
@@ -392,10 +404,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from js migration file with disableTransaction",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.js",
@@ -425,10 +438,11 @@ const migrateImportPath = resolve(
   "migrate.ts",
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from ts migration file",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.ts",
@@ -453,10 +467,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from ts migration file with disableTransaction",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.ts",
@@ -482,10 +497,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from script migration file with iterator returned",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.ts",
@@ -521,10 +537,11 @@ const depsImportPath = resolve(
   "deps.ts",
 );
 
-test(
+it(
   migrateGetPlanTests,
   "from script migration file with async iterator returned",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.ts",
@@ -558,10 +575,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "error if migration script missing generateQueries export",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.ts",
@@ -587,10 +605,11 @@ test(
   },
 );
 
-test(
+it(
   migrateGetPlanTests,
   "error if migration script generateQueries export is not a function",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const migration = migrationFromFile({
       id: 0,
       path: "0_user_create.ts",

@@ -6,12 +6,11 @@ import {
   assertRejects,
   assertSpyCall,
   assertSpyCalls,
-  assertThrows,
+  describe,
   FakeTime,
+  it,
   spy,
   stub,
-  test,
-  TestSuite,
 } from "./test_deps.ts";
 import { PostgresMigrate } from "./postgres.ts";
 import { Client, Transaction } from "./postgres_deps.ts";
@@ -23,25 +22,26 @@ import {
   options,
 } from "./test_postgres.ts";
 
-const migrateTests = new TestSuite({
+const migrateTests = describe<MigrateTest>({
   name: "PostgresMigrate",
-  async afterEach({ migrate }: MigrateTest) {
+  async afterEach() {
+    const { migrate } = this;
     if (migrate) {
       await migrate.end();
     }
   },
 });
 
-test(migrateTests, "client works", async () => {
+it(migrateTests, "client works", async () => {
   const migrate = new PostgresMigrate(options);
   const { client } = migrate;
   await migrate.connect();
   await client.queryArray("SELECT NOW()");
   await migrate.end();
-  assertThrows(() => client.queryArray("SELECT NOW()"));
+  await assertRejects(() => client.queryArray("SELECT NOW()"));
 });
 
-test(
+it(
   migrateTests,
   "duplicate calls to connect or end are ignored",
   async () => {
@@ -52,11 +52,11 @@ test(
     await client.queryArray("SELECT NOW()");
     await migrate.end();
     await migrate.end();
-    assertThrows(() => client.queryArray("SELECT NOW()"));
+    await assertRejects(() => client.queryArray("SELECT NOW()"));
   },
 );
 
-test(migrateTests, "now gets current date from client", async () => {
+it(migrateTests, "now gets current date from client", async () => {
   const migrate = new PostgresMigrate(options);
   const { client } = migrate;
   await migrate.connect();
@@ -74,23 +74,23 @@ test(migrateTests, "now gets current date from client", async () => {
   assert(actual <= after);
 
   await migrate.end();
-  assertThrows(() => client.queryArray("SELECT NOW()"));
+  await assertRejects(() => client.queryArray("SELECT NOW()"));
 });
 
-test(migrateTests, "init", async (context: MigrateTest) => {
-  context.migrate = new PostgresMigrate(options);
-  const { migrate } = context;
+it(migrateTests, "init", async function (this: MigrateTest) {
+  this.migrate = new PostgresMigrate(options);
+  const { migrate } = this;
   await cleanupInit(migrate);
   await migrate.init();
   await assertRejects(() => migrate.init());
 });
 
-test(
+it(
   migrateTests,
   "get returns array of all migrations sorted by id",
-  async (context: MigrateTest) => {
-    context.migrate = new PostgresMigrate(options);
-    const { migrate } = context;
+  async function () {
+    this.migrate = new PostgresMigrate(options);
+    const { migrate } = this;
     await cleanupInit(migrate);
     await migrate.init();
     const before = await migrate.now();
@@ -154,12 +154,12 @@ test(
   },
 );
 
-test(
+it(
   migrateTests,
   "getUnapplied returns array of unapplied migrations sorted by id",
-  async (context: MigrateTest) => {
-    context.migrate = new PostgresMigrate(options);
-    const { migrate } = context;
+  async function () {
+    this.migrate = new PostgresMigrate(options);
+    const { migrate } = this;
     await cleanupInit(migrate);
     await migrate.init();
     const before = await migrate.now();
@@ -201,21 +201,26 @@ test(
   },
 );
 
-const migrateLoadTests = new TestSuite({
+const migrateLoadTests = describe<InitializedMigrateTest>({
   name: "load",
   suite: migrateTests,
-  async beforeEach(context: InitializedMigrateTest) {
-    context.migrate = new PostgresMigrate(options);
-    const { migrate } = context;
+  async beforeEach() {
+    this.migrate = new PostgresMigrate(options);
+    const { migrate } = this;
     await cleanupInit(migrate);
     await migrate.init();
   },
+  // Remove after https://github.com/denoland/deno_std/pull/2308 is fixed
+  async afterEach() {
+    await this.migrate.end();
+  },
 });
 
-test(
+it(
   migrateLoadTests,
   "no migrations found",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const getFiles = stub(
       migrate,
       "getFiles",
@@ -231,10 +236,11 @@ test(
   },
 );
 
-test(
+it(
   migrateLoadTests,
   "add migrations for new files",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const getFiles = stub(
       migrate,
       "getFiles",
@@ -279,10 +285,11 @@ test(
   },
 );
 
-test(
+it(
   migrateLoadTests,
   "delete migrations if unapplied migration file is deleted",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const getFiles = stub(
       migrate,
       "getFiles",
@@ -316,10 +323,11 @@ test(
   },
 );
 
-test(
+it(
   migrateLoadTests,
   "update migrations if migration file is moved",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const getFiles = stub(
       migrate,
       "getFiles",
@@ -367,15 +375,15 @@ test(
   },
 );
 
-const migrateApplyTests = new TestSuite({
+const migrateApplyTests = describe<InitializedMigrateTest>({
   name: "apply",
   suite: migrateTests,
-  async beforeEach(context: InitializedMigrateTest) {
-    context.migrate = new PostgresMigrate({
+  async beforeEach() {
+    this.migrate = new PostgresMigrate({
       ...options,
       migrationsDir: await Deno.makeTempDir(),
     });
-    const { migrate } = context;
+    const { migrate } = this;
     await cleanupInit(migrate);
     await migrate.init();
     try {
@@ -384,9 +392,10 @@ const migrateApplyTests = new TestSuite({
       await migrate.connect();
     }
   },
-  async afterEach({ migrate }: InitializedMigrateTest) {
-    await migrate.end();
-    await Deno.remove(migrate.migrationsDir, { recursive: true });
+  async afterEach() {
+    await Deno.remove(this.migrate.migrationsDir, { recursive: true });
+    // Remove after https://github.com/denoland/deno_std/pull/2308 is fixed
+    await this.migrate.end();
   },
 });
 
@@ -425,7 +434,8 @@ async function assertApplyFirst(migrate: PostgresMigrate, expect: {
 
   assertSpyCall(applyQueries, 0);
   assert(
-    applyQueries.calls[0].args[1] instanceof (useTransaction ? Transaction : Client),
+    applyQueries.calls[0].args[1] instanceof
+      (useTransaction ? Transaction : Client),
     `expected ${useTransaction ? "transaction" : "client"} but used ${
       useTransaction ? "client" : "transaction"
     }`,
@@ -468,10 +478,11 @@ const migrateImportPath = resolve(
   "migrate.ts",
 );
 
-test(
+it(
   migrateApplyTests,
   "apply migration queries",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
       await Deno.writeTextFile(
         resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
@@ -504,10 +515,11 @@ test(
   },
 );
 
-test(
+it(
   migrateApplyTests,
   "apply migration queries with disableTransaction",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
       await Deno.writeTextFile(
         resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
@@ -541,10 +553,11 @@ test(
   },
 );
 
-test(
+it(
   migrateApplyTests,
   "apply migration queries from iterable",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
       await Deno.writeTextFile(
         resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
@@ -575,10 +588,11 @@ const depsImportPath = resolve(
   "deps.ts",
 );
 
-test(
+it(
   migrateApplyTests,
   "apply migration queries from async iterable",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
       await Deno.writeTextFile(
         resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
@@ -627,7 +641,8 @@ async function assertApplyError(migrate: PostgresMigrate, expect: {
 
   assertSpyCall(applyQueries, 0);
   assert(
-    applyQueries.calls[0].args[1] instanceof (useTransaction ? Transaction : Client),
+    applyQueries.calls[0].args[1] instanceof
+      (useTransaction ? Transaction : Client),
     `expected ${useTransaction ? "transaction" : "client"} but used ${
       useTransaction ? "client" : "transaction"
     }`,
@@ -662,10 +677,11 @@ async function assertApplyError(migrate: PostgresMigrate, expect: {
   assertEquals(migrations.slice(2), []);
 }
 
-test(
+it(
   migrateApplyTests,
   "rollback on transaction error",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
       await Deno.writeTextFile(
         resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
@@ -684,15 +700,16 @@ test(
     await assertApplyError(migrate, {
       names: ["0_user_create.ts", "1_user_add_column_email.ts"],
       useTransaction: true,
-      errorMsg: "violates not-null constraint",
+      errorMsg: 'The transaction "migrate_apply_0" has been aborted',
     });
   },
 );
 
-test(
+it(
   migrateApplyTests,
   "rollback on runtime error",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     for (const [index, migrationFile] of exampleMigrationFiles.entries()) {
       await Deno.writeTextFile(
         resolve(migrate.migrationsDir, `${index}_${migrationFile.name}.ts`),
@@ -722,23 +739,27 @@ interface LockTest extends InitializedMigrateTest {
   time: FakeTime;
 }
 
-const migrateLockTests = new TestSuite({
+const migrateLockTests = describe<LockTest>({
   name: "lock",
   suite: migrateTests,
-  async beforeEach(context: LockTest) {
-    context.migrate = new PostgresMigrate(options);
-    await context.migrate.connect();
-    context.otherMigrate = new PostgresMigrate(options);
-    await context.otherMigrate.connect();
-    context.time = new FakeTime();
+  async beforeEach(this: LockTest) {
+    this.migrate = new PostgresMigrate(options);
+    await this.migrate.connect();
+    this.otherMigrate = new PostgresMigrate(options);
+    await this.otherMigrate.connect();
+    this.time = new FakeTime();
   },
-  async afterEach({ otherMigrate, time }: LockTest) {
+  async afterEach() {
+    const { otherMigrate, time } = this;
     await otherMigrate.end();
     time.restore();
+    // Remove after https://github.com/denoland/deno_std/pull/2308 is fixed
+    this.migrate.end();
   },
 });
 
-test(migrateLockTests, "works", async ({ migrate, otherMigrate, time }) => {
+it(migrateLockTests, "works", async function () {
+  const { migrate, otherMigrate, time } = this;
   const seq: number[] = [];
   const main = delay(0)
     .then(async () => {
@@ -763,7 +784,8 @@ test(migrateLockTests, "works", async ({ migrate, otherMigrate, time }) => {
   assertEquals(seq, [1, 2, 3, 4, 5]);
 });
 
-test(migrateLockTests, "abortable", async ({ migrate, otherMigrate, time }) => {
+it(migrateLockTests, "abortable", async function () {
+  const { migrate, otherMigrate, time } = this;
   const seq: number[] = [];
   const controller = new AbortController();
   const main = delay(0)
@@ -774,6 +796,7 @@ test(migrateLockTests, "abortable", async ({ migrate, otherMigrate, time }) => {
       await time.tickAsync(1000);
       await time.tickAsync(1000);
       controller.abort();
+      await time.tickAsync(1000);
       await time.tickAsync(1000);
       seq.push(5);
       await lock.release();

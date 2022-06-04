@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        deno: [v1.x, canary]
+        deno: [v1.x]
       fail-fast: true
     services:
       postgres:
