@@ -1,6 +1,6 @@
 import { delay, resolve } from "./deps.ts";
 import { PostgresMigrate } from "./postgres.ts";
-import { assertEquals, test, TestSuite } from "./test_deps.ts";
+import { assertEquals, describe, it } from "./test_deps.ts";
 import {
   cleanupInit,
   exampleMigrationsDir,
@@ -9,14 +9,14 @@ import {
 } from "./test_postgres.ts";
 import "./basic.ts";
 
-const applyTests = new TestSuite({
+const applyTests = describe<InitializedMigrateTest>({
   name: "apply",
-  async beforeEach(context: InitializedMigrateTest) {
-    context.migrate = new PostgresMigrate({
+  async beforeEach() {
+    this.migrate = new PostgresMigrate({
       ...options,
       migrationsDir: exampleMigrationsDir,
     });
-    const { migrate } = context;
+    const { migrate } = this;
     await cleanupInit(migrate);
     try {
       await migrate.connect();
@@ -27,15 +27,16 @@ const applyTests = new TestSuite({
       await migrate.end();
     }
   },
-  async afterEach({ migrate }: InitializedMigrateTest) {
-    await migrate.end();
+  async afterEach() {
+    await this.migrate.end();
   },
 });
 
-test(
+it(
   applyTests,
   "creates migration table and applies all migrations",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate_basic.ts"),
@@ -70,7 +71,8 @@ Done
   },
 );
 
-test(applyTests, "applies unapplied migrations", async ({ migrate }) => {
+it(applyTests, "applies unapplied migrations", async function () {
+  const { migrate } = this;
   await migrate.connect();
   await migrate.init();
   await migrate.load();
@@ -113,7 +115,8 @@ Done
   }
 });
 
-test(applyTests, "no unapplied migrations", async ({ migrate }) => {
+it(applyTests, "no unapplied migrations", async function () {
+  const { migrate } = this;
   await migrate.connect();
   await migrate.init();
   await migrate.load();

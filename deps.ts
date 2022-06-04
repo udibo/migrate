@@ -1,8 +1,8 @@
-export { parse } from "https://deno.land/std@0.117.0/flags/mod.ts";
-export type { Args } from "https://deno.land/std@0.117.0/flags/mod.ts";
+export { parse } from "https://deno.land/std@0.142.0/flags/mod.ts";
+export type { Args } from "https://deno.land/std@0.142.0/flags/mod.ts";
 
-export { walk } from "https://deno.land/std@0.117.0/fs/walk.ts";
-export type { WalkEntry } from "https://deno.land/std@0.117.0/fs/walk.ts";
+export { walk } from "https://deno.land/std@0.142.0/fs/walk.ts";
+export type { WalkEntry } from "https://deno.land/std@0.142.0/fs/walk.ts";
 
 export {
   dirname,
@@ -11,9 +11,9 @@ export {
   relative,
   resolve,
   toFileUrl,
-} from "https://deno.land/std@0.117.0/path/mod.ts";
+} from "https://deno.land/std@0.142.0/path/mod.ts";
 
-export { readLines } from "https://deno.land/std@0.117.0/io/buffer.ts";
-export { StringReader } from "https://deno.land/std@0.117.0/io/readers.ts";
+export { readLines } from "https://deno.land/std@0.142.0/io/buffer.ts";
+export { StringReader } from "https://deno.land/std@0.142.0/io/readers.ts";
 
-export { delay } from "https://deno.land/std@0.117.0/async/delay.ts";
+export { delay } from "https://deno.land/std@0.142.0/async/delay.ts";

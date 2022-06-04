@@ -1,6 +1,6 @@
 import { delay, resolve } from "./deps.ts";
 import { PostgresMigrate } from "./postgres.ts";
-import { assertEquals, test, TestSuite } from "./test_deps.ts";
+import { assertEquals, describe, it } from "./test_deps.ts";
 import {
   cleanupInit,
   exampleMigrationsDir,
@@ -9,14 +9,14 @@ import {
 } from "./test_postgres.ts";
 import "./cli.ts";
 
-const cliTests = new TestSuite({
+const cliTests = describe<InitializedMigrateTest>({
   name: "CLI",
-  async beforeEach(context: InitializedMigrateTest) {
-    context.migrate = new PostgresMigrate({
+  async beforeEach() {
+    this.migrate = new PostgresMigrate({
       ...options,
       migrationsDir: exampleMigrationsDir,
     });
-    const { migrate } = context;
+    const { migrate } = this;
     await cleanupInit(migrate);
     try {
       await migrate.connect();
@@ -27,20 +27,21 @@ const cliTests = new TestSuite({
       await migrate.end();
     }
   },
-  async afterEach({ migrate }: InitializedMigrateTest) {
-    await migrate.end();
+  async afterEach() {
+    await this.migrate.end();
   },
 });
 
-const cliInitTests = new TestSuite({
+const cliInitTests = describe({
   name: "init",
   suite: cliTests,
 });
 
-test(
+it(
   cliInitTests,
   "creates migration table if it does not exist yet",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -65,10 +66,11 @@ Created migration table
   },
 );
 
-test(
+it(
   cliInitTests,
   "migration table already exists",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     await migrate.connect();
     await migrate.init();
     await migrate.end();
@@ -97,20 +99,22 @@ Migration table already exists
   },
 );
 
-const cliLoadTests = new TestSuite({
+const cliLoadTests = describe({
   name: "load",
   suite: cliTests,
-  async beforeEach({ migrate }: InitializedMigrateTest) {
+  async beforeEach() {
+    const { migrate } = this;
     await migrate.connect();
     await migrate.init();
     await migrate.end();
   },
 });
 
-test(
+it(
   cliLoadTests,
   "new migrations only",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -140,10 +144,11 @@ Done
   },
 );
 
-test(
+it(
   cliLoadTests,
   "moved migration",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     await migrate.connect();
     await migrate.load();
     await migrate.client.queryArray
@@ -184,10 +189,11 @@ Done
   },
 );
 
-test(
+it(
   cliLoadTests,
   "deleted migration",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     await migrate.connect();
     await migrate.load();
     await migrate.client.queryArray`
@@ -230,10 +236,11 @@ Done
   },
 );
 
-const cliStatusTests = new TestSuite({
+const cliStatusTests = describe({
   name: "status",
   suite: cliTests,
-  async beforeEach({ migrate }: InitializedMigrateTest) {
+  async beforeEach() {
+    const { migrate } = this;
     await migrate.connect();
     await migrate.init();
     await migrate.client.queryArray`
@@ -248,10 +255,11 @@ const cliStatusTests = new TestSuite({
   },
 });
 
-test(
+it(
   cliStatusTests,
   "without details",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -281,10 +289,11 @@ Status:
   },
 );
 
-test(
+it(
   cliStatusTests,
   "with details",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -318,10 +327,11 @@ Status:
   },
 );
 
-const cliListTests = new TestSuite({
+const cliListTests = describe({
   name: "list",
   suite: cliTests,
-  async beforeEach({ migrate }: InitializedMigrateTest) {
+  async beforeEach() {
+    const { migrate } = this;
     await migrate.connect();
     await migrate.init();
     await migrate.client.queryArray`
@@ -342,10 +352,11 @@ function decodeListOutput(output: Uint8Array): string {
     .replace(/applied at: [^\n]*\n/g, "applied at: {DATE}\n");
 }
 
-test(
+it(
   cliListTests,
   "all migrations",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -381,10 +392,11 @@ All migrations:
   },
 );
 
-test(
+it(
   cliListTests,
   "applied migrations",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -419,10 +431,11 @@ Applied migrations:
   },
 );
 
-test(
+it(
   cliListTests,
   "unapplied migrations",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -448,10 +461,11 @@ Unapplied migrations:
   },
 );
 
-test(
+it(
   cliListTests,
   "moved migrations",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -479,10 +493,11 @@ Moved migrations:
   },
 );
 
-test(
+it(
   cliListTests,
   "deleted migrations",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -509,10 +524,11 @@ Deleted migrations:
   },
 );
 
-const cliApplyTests = new TestSuite({
+const cliApplyTests = describe({
   name: "apply",
   suite: cliTests,
-  async beforeEach({ migrate }: InitializedMigrateTest) {
+  async beforeEach() {
+    const { migrate } = this;
     await migrate.connect();
     await migrate.init();
     await migrate.load();
@@ -520,10 +536,11 @@ const cliApplyTests = new TestSuite({
   },
 });
 
-test(
+it(
   cliApplyTests,
   "all unapplied",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     const process = Deno.run({
       cmd: [
         resolve(migrate.migrationsDir, "../migrate.ts"),
@@ -556,10 +573,11 @@ Done
   },
 );
 
-test(
+it(
   cliApplyTests,
   "no unapplied",
-  async ({ migrate }) => {
+  async function () {
+    const { migrate } = this;
     await migrate.connect();
     const migrations = await migrate.getUnapplied();
     for (const migration of migrations) {
