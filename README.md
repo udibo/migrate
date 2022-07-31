@@ -1,6 +1,6 @@
 # Migrate
 
-[![version](https://img.shields.io/badge/release-0.2.3-success)](https://deno.land/x/migrate@0.2.3)
+[![version](https://img.shields.io/badge/release-0.2.4-success)](https://deno.land/x/migrate@0.2.4)
 [![CI](https://github.com/udibo/migrate/workflows/CI/badge.svg)](https://github.com/udibo/migrate/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/udibo/migrate/branch/main/graph/badge.svg?token=8Q7TSUFWUY)](https://codecov.io/gh/udibo/migrate)
 [![license](https://img.shields.io/github/license/udibo/migrate)](https://github.com/udibo/migrate/blob/master/LICENSE)
@@ -21,9 +21,9 @@ Currently migrate is only implemented for Postgres. The main entrypoint is
 
 ```ts
 // Import from Deno's third party module registry
-import { PostgresMigrate } from "https://deno.land/x/migrate@0.2.3/postgres.ts";
+import { PostgresMigrate } from "https://deno.land/x/migrate@0.2.4/postgres.ts";
 // Import from GitHub
-import { PostgresMigrate } "https://raw.githubusercontent.com/udibo/migrate/0.2.3/postgres.ts";
+import { PostgresMigrate } "https://raw.githubusercontent.com/udibo/migrate/0.2.4/postgres.ts";
 ```
 
 ## Usage
@@ -34,7 +34,7 @@ To use the command line interface, you must create a script that will initialize
 the Migrate instance and call the run command from [cli.ts](cli.ts). An example
 can be found [here](#postgres-cli).
 
-See [deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.2.3/cli.ts)
+See [deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.2.4/cli.ts)
 for more information.
 
 #### Command: init
@@ -160,7 +160,7 @@ different ways to use the migrate module. Only one is required to use the
 migrate tool.
 
 See
-[deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.2.3/postgres.ts)
+[deno docs](https://doc.deno.land/https/deno.land/x/migrate@0.2.4/postgres.ts)
 for more information.
 
 #### Postgres script

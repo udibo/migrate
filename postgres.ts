@@ -164,8 +164,8 @@ export class PostgresMigrate<GenerateOptions = unknown>
         await clientOrTransaction.queryArray(text, args);
       }
     }
-    clientOrTransaction.queryArray
-      `UPDATE migration SET applied_path = ${migration.path}, applied_at = now() WHERE id = ${migration.id}`;
+    clientOrTransaction
+      .queryArray`UPDATE migration SET applied_path = ${migration.path}, applied_at = now() WHERE id = ${migration.id}`;
   }
 
   async apply(migration: Migration): Promise<void> {

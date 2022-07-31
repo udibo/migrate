@@ -1,4 +1,4 @@
-FROM denoland/deno:1.22.2
+FROM denoland/deno:1.24.1
 WORKDIR /app
 
 # Install wait utility
