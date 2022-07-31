@@ -151,8 +151,8 @@ it(
     const { migrate } = this;
     await migrate.connect();
     await migrate.load();
-    await migrate.client.queryArray
-      `UPDATE migration SET path = ${"1_old_name.sql"}, applied_at = now() WHERE id = ${1}`;
+    await migrate.client
+      .queryArray`UPDATE migration SET path = ${"1_old_name.sql"}, applied_at = now() WHERE id = ${1}`;
     const migrations = await migrate.getUnapplied();
     await migrate.apply(migrations[0]);
     await migrate.end();
