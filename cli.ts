@@ -1,4 +1,5 @@
 import { parse } from "./deps.ts";
+import { createMigrationDirectoryIfNotExists, logger } from "./lib.ts";
 import { Migrate, Migration } from "./migrate.ts";
 
 /** Filters used by the list command. */
@@ -11,12 +12,25 @@ export enum ListFilter {
 
 /** Initializes the migration table for tracking which migrations have been applied. */
 export async function init(migrate: Migrate): Promise<void> {
-  console.log("Creating migration table if it does not exist");
+  logger("init", "Initializing migrate...");
   try {
     await migrate.init();
-    console.log("Created migration table");
+    createMigrationDirectoryIfNotExists(migrate);
+
+    logger(
+      "init",
+      "Database has been initialised with migrations table and migration timestamp trigger.",
+    );
+
+    logger(
+      "init",
+      "To get started, create your first migration using the filename format of 0_migration_title.{sql,json} and run `apply`",
+    );
   } catch {
-    console.log("Migration table already exists");
+    logger(
+      "error",
+      "Migration table already exists. Have you already initialized migrate?",
+    );
   }
 }
 
@@ -25,7 +39,6 @@ export async function init(migrate: Migrate): Promise<void> {
  * Returns all loaded migrations.
  */
 export async function loadMigrations(migrate: Migrate): Promise<Migration[]> {
-  console.log("Loading migrations");
   const before = await migrate.now();
   let migrations = await migrate.getAll();
   const deletedMigrationIds = new Set(migrations.map(({ id }) => id));
@@ -35,26 +48,30 @@ export async function loadMigrations(migrate: Migrate): Promise<Migration[]> {
     deletedMigrationIds.delete(id);
   }
 
-  const createdMigrations = migrations.filter((migration) =>
-    migration.createdAt >= before
+  const createdMigrations = migrations.filter(
+    (migration) => migration.createdAt >= before,
   );
-  console.log(
+  logger(
+    "load",
     `${createdMigrations.length || "No"} new migration${
       createdMigrations.length !== 1 ? "s" : ""
     } found`,
   );
 
   if (createdMigrations.length < migrations.length) {
-    const updatedMigrations = migrations.filter((migration) =>
-      migration.createdAt < before && migration.updatedAt >= before
+    const updatedMigrations = migrations.filter(
+      (migration) =>
+        migration.createdAt < before && migration.updatedAt >= before,
     );
-    console.log(
+    logger(
+      "load",
       `${updatedMigrations.length || "No"} migration${
         updatedMigrations.length !== 1 ? "s" : ""
       } updated`,
     );
 
-    console.log(
+    logger(
+      "load",
       `${deletedMigrationIds.size || "No"} migration${
         deletedMigrationIds.size !== 1 ? "s" : ""
       } deleted`,
@@ -68,17 +85,19 @@ export async function loadMigrations(migrate: Migrate): Promise<Migration[]> {
  * Loads all migrations current path values into the migration table.
  */
 export async function load(migrate: Migrate): Promise<void> {
-  console.log("Acquiring migrate lock");
+  logger("load", "Acquiring migrate lock");
   const lock = await migrate.lock();
-  console.log("Acquired migrate lock");
+  logger("load", "Acquired migrate lock");
 
   await loadMigrations(migrate);
 
-  console.log("Releasing migrate lock");
+  logger("load", "Releasing migrate lock");
   await lock.release();
-  console.log("Released migrate lock");
-
-  console.log("Done");
+  logger("load", "Released migrate lock");
+  logger(
+    "load",
+    "Load has completed. New migrations are now in the database. To apply them, please run apply.",
+  );
 }
 
 /**
@@ -100,7 +119,7 @@ export async function status(
     movedMigrations: Migration[] = [],
     deletedMigrations: Migration[] = [];
 
-  console.log("Checking loaded migrations");
+  logger("status", "Checking loaded migrations");
   for (const migration of await migrate.getAll()) {
     total++;
     const { id, path, appliedPath } = migration;
@@ -111,35 +130,34 @@ export async function status(
     else if (path != appliedPath) movedMigrations.push(migration);
   }
 
-  console.log("Status:");
-  console.log(`  Total: ${total}`);
-  console.log(`  Applied: ${total - unappliedMigrations.length}`);
+  logger("status", `  Total: ${total}`);
+  logger("status", `  Applied: ${total - unappliedMigrations.length}`);
 
   if (movedMigrations.length) {
-    console.log(`  File moved: ${movedMigrations.length}`);
+    logger("status", `  File moved: ${movedMigrations.length}`);
     if (details) {
       for (const migration of movedMigrations) {
         const { path, appliedPath } = migration;
-        console.log(`    ${appliedPath} -> ${path}`);
+        logger("status", `    ${appliedPath} -> ${path}`);
       }
     }
   }
 
   if (deletedMigrations.length) {
-    console.log(`  File deleted: ${deletedMigrations.length}`);
+    logger("status", `  File deleted: ${deletedMigrations.length}`);
     if (details) {
       for (const migration of deletedMigrations) {
         const { appliedPath } = migration;
-        console.log(`    ${appliedPath}`);
+        logger("status", `    ${appliedPath}`);
       }
     }
   }
 
   if (unappliedMigrations.length) {
-    console.log(`  Not applied: ${unappliedMigrations.length}`);
+    logger("status", `  Not applied: ${unappliedMigrations.length}`);
     if (details) {
       for (const migration of unappliedMigrations) {
-        console.log(`    ${migration.path}`);
+        logger("status", `    ${migration.path}`);
       }
     }
   }
@@ -157,61 +175,67 @@ export async function list(
 ): Promise<void> {
   const parsedArgs = parse(args);
   const { filter } = parsedArgs;
-  console.log("Checking loaded migrations");
+  logger("list", "Checking loaded migrations");
   let migrations = await migrate.getAll();
 
   switch (filter) {
     case ListFilter.Applied:
-      console.log(
+      logger(
+        "list",
         migrations.length ? "Applied migrations:" : "No applied migrations",
       );
-      migrations = migrations.filter((migration: Migration) =>
-        migration.appliedAt
+      migrations = migrations.filter(
+        (migration: Migration) => migration.appliedAt,
       );
       break;
     case ListFilter.Unapplied:
-      console.log(
+      logger(
+        "list",
         migrations.length ? "Unapplied migrations:" : "No unapplied migrations",
       );
-      migrations = migrations.filter((migration: Migration) =>
-        !migration.appliedAt
+      migrations = migrations.filter(
+        (migration: Migration) => !migration.appliedAt,
       );
       break;
     case ListFilter.Moved:
-      console.log(
+      logger(
+        "list",
         migrations.length ? "Moved migrations:" : "No moved migrations",
       );
-      migrations = migrations.filter((migration: Migration) =>
-        !!migration.appliedPath && !!migration.path &&
-        migration.appliedPath !== migration.path
+      migrations = migrations.filter(
+        (migration: Migration) =>
+          !!migration.appliedPath &&
+          !!migration.path &&
+          migration.appliedPath !== migration.path,
       );
       break;
     case ListFilter.Deleted:
-      console.log(
+      logger(
+        "list",
         migrations.length ? "Deleted migrations:" : "No deleted migrations",
       );
       migrations = migrations.filter((migration: Migration) => !migration.path);
       break;
     default:
       if (filter != null) console.warn("invalid filter");
-      console.log(migrations.length ? "All migrations:" : "No migrations");
+      logger("list", migrations.length ? "All migrations:" : "No migrations");
   }
 
   for (const migration of migrations) {
     const { path, appliedPath, appliedAt } = migration;
-    console.log(`  ${appliedPath ?? path}`);
+    logger("list", `  ${appliedPath ?? path}`);
     if (appliedAt) {
-      console.log(`    applied at: ${appliedAt}`);
+      logger("list", `    applied at: ${appliedAt}`);
     } else if (filter !== ListFilter.Unapplied) {
-      console.log(`    not applied`);
+      logger("list", `    not applied`);
     }
 
     if (appliedPath && path && path !== appliedPath) {
-      console.log(`    file moved to: ${path}`);
+      logger("list", `    file moved to: ${path}`);
     }
 
     if (!path && filter !== ListFilter.Deleted) {
-      console.log(`    file deleted`);
+      logger("list", `    file deleted`);
     }
   }
 }
@@ -221,20 +245,21 @@ export async function applyMigrations(
   migrate: Migrate,
   migrations: Migration[],
 ): Promise<void> {
-  const unappliedMigrations = migrations.filter((migration) =>
-    !migration.appliedPath
+  const unappliedMigrations = migrations.filter(
+    (migration) => !migration.appliedPath,
   );
-  console.log(
+  logger(
+    "apply",
     `${unappliedMigrations.length || "No"} unapplied migration${
       unappliedMigrations.length !== 1 ? "s" : ""
     }`,
   );
   if (unappliedMigrations.length) {
     for (const migration of unappliedMigrations) {
-      console.log(`Applying migration: ${migration.path}`);
+      logger("apply", `Applying migration: ${migration.path}`);
       await migrate.apply(migration);
     }
-    console.log("Finished applying all migrations");
+    logger("apply", "Finished applying all migrations");
   }
 }
 
@@ -242,25 +267,43 @@ export async function applyMigrations(
  * Applies all unapplied migrations and outputs the filenames.
  */
 export async function apply(migrate: Migrate): Promise<void> {
-  console.log("Acquiring migrate lock");
+  logger("apply", "Acquiring migrate lock");
   const lock = await migrate.lock();
-  console.log("Acquired migrate lock");
+  logger("apply", "Acquired migrate lock");
 
-  console.log("Checking loaded migrations");
+  logger("apply", "Checking loaded migrations");
   const migrations = await migrate.getUnapplied();
   await applyMigrations(migrate, migrations);
 
-  console.log("Releasing migrate lock");
+  logger("apply", "Releasing migrate lock");
   await lock.release();
-  console.log("Released migrate lock");
+  logger("apply", "Released migrate lock");
 
-  console.log("Done");
+  logger("apply", "Migrations applied successfully");
+}
+
+export function help() {
+  logger(
+    "info",
+    "Migrate allows you to manage your postgres migrations via the CLI and files in your codebase",
+  );
+  logger(
+    "init",
+    "init allows you to initialize your project and creates a migrations table in your database.",
+  );
+  logger(
+    "load",
+    "load allows you to add migrations to your database but not run them",
+  );
+  logger("apply", "apply loads and migrates any unmigrated migrations");
+  logger("list", "list shows you all your migration files and their status");
+  logger("status", "status gives you an overview of your migrations");
 }
 
 export type Command = (
   migrate: Migrate,
   args?: string[],
-) => Promise<unknown>;
+) => Promise<unknown> | unknown;
 export interface Commands {
   [command: string]: Command;
 }
@@ -276,17 +319,22 @@ export const commands: Commands = {
 /** Runs migrate commands based on `Deno.args`. */
 export async function run(migrate: Migrate) {
   const [command] = Deno.args;
+
   if (commands[command]) {
-    console.log("Connecting to database");
     try {
+      logger("info", "Connecting to database");
       await migrate.connect();
     } catch (error) {
-      console.log("Failed to connect to database");
+      logger("error", "Failed to connect to database");
       throw error;
     }
     await commands[command](migrate, Deno.args.slice(1));
     await migrate.end();
   } else {
-    console.log("command not found");
+    if (command == "--help") {
+      help();
+    } else {
+      logger("error", "Command not found or missing argument.");
+    }
   }
 }

@@ -38,9 +38,7 @@ it(
   async function () {
     const { migrate } = this;
     const process = Deno.run({
-      cmd: [
-        resolve(migrate.migrationsDir, "../migrate_basic.ts"),
-      ],
+      cmd: [resolve(migrate.migrationsDir, "../migrate_basic.ts")],
       stdout: "piped",
     });
     try {
@@ -49,20 +47,19 @@ it(
       assertEquals(
         decoder.decode(output),
         `\
-Connecting to database
-Acquiring migrate lock
-Acquired migrate lock
-Creating migration table if it does not exist
-Created migration table
-Loading migrations
-2 new migrations found
-2 unapplied migrations
-Applying migration: 0_user_create.sql
-Applying migration: 1_user_add_column_email.sql
-Finished applying all migrations
-Releasing migrate lock
-Released migrate lock
-Done
+[INFO]: Connecting to database
+[APPLY]: Acquiring migrate lock
+[APPLY]: Acquired migrate lock
+[INIT]: Initializing migrate...
+[INIT]: Database has been initialised with migrations table and migration timestamp trigger.
+[INIT]: To get started, create your first migration using the filename format of 0_migration_title.{sql,json} and run \`apply\`
+[LOAD]: 2 new migrations found
+[APPLY]: 2 unapplied migrations
+[APPLY]: Applying migration: 0_user_create.sql
+[APPLY]: Applying migration: 1_user_add_column_email.sql
+[APPLY]: Finished applying all migrations
+[APPLY]: Releasing migrate lock
+[APPLY]: Released migrate lock
 `,
       );
     } finally {
@@ -82,9 +79,7 @@ it(applyTests, "applies unapplied migrations", async function () {
   await delay(1);
 
   const process = Deno.run({
-    cmd: [
-      resolve(migrate.migrationsDir, "../migrate_basic.ts"),
-    ],
+    cmd: [resolve(migrate.migrationsDir, "../migrate_basic.ts")],
     stdout: "piped",
   });
   try {
@@ -93,21 +88,19 @@ it(applyTests, "applies unapplied migrations", async function () {
     assertEquals(
       decoder.decode(output),
       `\
-Connecting to database
-Acquiring migrate lock
-Acquired migrate lock
-Creating migration table if it does not exist
-Migration table already exists
-Loading migrations
-No new migrations found
-No migrations updated
-No migrations deleted
-1 unapplied migration
-Applying migration: 1_user_add_column_email.sql
-Finished applying all migrations
-Releasing migrate lock
-Released migrate lock
-Done
+[INFO]: Connecting to database
+[APPLY]: Acquiring migrate lock
+[APPLY]: Acquired migrate lock
+[INIT]: Initializing migrate...
+[ERROR]: Migration table already exists. Have you already initialized migrate?
+[LOAD]: No new migrations found
+[LOAD]: No migrations updated
+[LOAD]: No migrations deleted
+[APPLY]: 1 unapplied migration
+[APPLY]: Applying migration: 1_user_add_column_email.sql
+[APPLY]: Finished applying all migrations
+[APPLY]: Releasing migrate lock
+[APPLY]: Released migrate lock
 `,
     );
   } finally {
@@ -128,9 +121,7 @@ it(applyTests, "no unapplied migrations", async function () {
   await delay(1);
 
   const process = Deno.run({
-    cmd: [
-      resolve(migrate.migrationsDir, "../migrate_basic.ts"),
-    ],
+    cmd: [resolve(migrate.migrationsDir, "../migrate_basic.ts")],
     stdout: "piped",
   });
   try {
@@ -139,19 +130,17 @@ it(applyTests, "no unapplied migrations", async function () {
     assertEquals(
       decoder.decode(output),
       `\
-Connecting to database
-Acquiring migrate lock
-Acquired migrate lock
-Creating migration table if it does not exist
-Migration table already exists
-Loading migrations
-No new migrations found
-No migrations updated
-No migrations deleted
-No unapplied migrations
-Releasing migrate lock
-Released migrate lock
-Done
+[INFO]: Connecting to database
+[APPLY]: Acquiring migrate lock
+[APPLY]: Acquired migrate lock
+[INIT]: Initializing migrate...
+[ERROR]: Migration table already exists. Have you already initialized migrate?
+[LOAD]: No new migrations found
+[LOAD]: No migrations updated
+[LOAD]: No migrations deleted
+[APPLY]: No unapplied migrations
+[APPLY]: Releasing migrate lock
+[APPLY]: Released migrate lock
 `,
     );
   } finally {
