@@ -17,3 +17,4 @@ export { readLines } from "https://deno.land/std@0.163.0/io/buffer.ts";
 export { StringReader } from "https://deno.land/std@0.163.0/io/readers.ts";
 
 export { delay } from "https://deno.land/std@0.163.0/async/delay.ts";
+export { existsSync } from "https://deno.land/std@0.220.1/fs/mod.ts";

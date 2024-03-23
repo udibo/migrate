@@ -46,9 +46,9 @@ export interface MigrationJSON {
 
 /** A script for generating migration queries. */
 export interface MigrationScript<GenerateOptions = unknown> {
-  generateQueries(options?: GenerateOptions):
-    | Iterable<MigrationQuery>
-    | AsyncIterable<MigrationQuery>;
+  generateQueries(
+    options?: GenerateOptions,
+  ): Iterable<MigrationQuery> | AsyncIterable<MigrationQuery>;
   disableTransaction?: boolean;
 }
 
@@ -157,9 +157,10 @@ export abstract class Migrate<GenerateOptions = unknown> {
       ({ queries } = migration);
       useTransaction = !migration.disableTransaction;
     } else {
-      const { generateQueries, disableTransaction }: MigrationScript<
-        GenerateOptions
-      > = await import(toFileUrl(path).href);
+      const {
+        generateQueries,
+        disableTransaction,
+      }: MigrationScript<GenerateOptions> = await import(toFileUrl(path).href);
       if (!generateQueries) {
         throw new Error(
           "migration script must export generateQueries function",
@@ -170,4 +171,10 @@ export abstract class Migrate<GenerateOptions = unknown> {
     }
     return { queries, useTransaction };
   }
+}
+
+function createMigrationDirectoryIfNotExists(
+  migrationsDir: string | undefined,
+) {
+  throw new Error("Function not implemented.");
 }
